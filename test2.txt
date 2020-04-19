@@ -1,0 +1,27 @@
+A-1 The Polite Assumption
+I say that machines will someday be intelligent and have minds because the human mind is just a complex organic machine and it's only a matter of time before we have the technology 
+to replicate it. Skeptics of this argument may suggest that machines are incapable of feeling emotions. However, they would be wrong because an emotion is nothing more than a state 
+of being. This subject matter is of importance because we are already surrounded by AIs and the trend shows them becoming more intelligent and common place. 
+
+Machines are already incredibly sophisticated.  The trend shows processors getting exponentially fasters, smaller, and more complex. From dominating rooms to just our pockets, they 
+are becoming increasingly small. We've already built machines to replace human arms which receive signals from the brain, directing them to move. It's only a matter of time before 
+the technology exists to replicate the brain sending those signals. And once it does, who could argue with the fact that this machine is intelligent and has a mind. Obviously, we are 
+not at this stage yet. A more complete understanding of the human brain is necessary first, as we know very little about how it actually works, but replication seems possible. 
+
+	 We would be hard pressed to deny that machines have something resembling intelligence and a mind. They can solve complex equations and mathematical problems in milliseconds. 
+They can translate whole books from one language to another. There are even examples of their ability to learn. In Merrit Kennedy's article, Computer Learns to Play GO at Superhuman 
+Levels Without Human Knowledge, she describes an AI named AlphaGO Zero. This AI was given nothing but the rules of the boardgame GO and told to play with itself. Over the course 
+of a few million games, the AI rediscovered human techniques, and then rejected them for its own new ones. When the AI faced off against the world's top GO player, it won all 10 games.
+This isn't recalling programming instructions. The machine learned through experience, like us.
+
+	 Further evidence that computers could soon have minds lies in their incredible memories. Their ability to recall huge amounts of memory with high speed far trumps that of the 
+human mind. They are even capable of recognizing a person's emotions through facial recognition software and convey emotions through a screen or mechanized face.
+
+	 There are those who may counter that these are not true emotions. They may say there is no way to recreate the joy one feels on a birthday or the sadness one feels from the 
+death of a loved one. These feelings are difficult to communicate, let alone simulate. They will argue that they are a defining difference between man and machine. They will argue that 
+displaying a face on a computer screen is totally different than actually feeling the emotion.
+
+	 While these are all valid points, I believe they are overplaying what constitutes an emotion. There is a finite number of emotions, though counting them is not my goal. 
+Let's overestimate and say there are 100. An emotion is just a state of being. A computer needs only to take into account the life factors at a given moment, the variable if you 
+will, for its emotion to be set to the proper number, like 15 for happiness. It would be just as automatic the algorithm in our heads that looks at the state of the world right now 
+and tells us we should be crying. And whose to say it's not truly 15? I can't even be certain you're 15.

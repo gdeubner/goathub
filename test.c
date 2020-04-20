@@ -109,6 +109,9 @@ char* nitwick(char** fileList,int argc){
   int ptr=0;
   int i=1;
   char* buffer=malloc(sizeof(char)*2000);
+  //First command assumption
+  strcat(buffer,fileList[0]);
+  strcat(buffer,":");
   int t=total;
   int len=0;
   while(t>0){

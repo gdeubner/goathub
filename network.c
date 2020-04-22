@@ -8,9 +8,27 @@
 #include <errno.h>
 #include <unistd.h>
 #include <openssl/sha.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <sys/socket.h>
 #include "gStructs.h"
 #include "network.h"
-
+int readBytesNum(int client){
+  char* buffer=malloc(sizeof(char)*50);
+  memset(buffer,'\0',50);
+  int ptr=0;
+  char currentChar;
+  while(currentChar!=':'){
+    read(client,buffer+ptr,1);
+    currentChar=buffer[ptr];
+    ptr++;
+  }
+  buffer[ptr]='\0';
+  int bytes=atoi(buffer);
+  printf("%d\n",bytes);
+  free(buffer);
+  return bytes;
+}
 int copyFile(int ffd, int ifd){
   char *buffer = malloc(sizeof(char)*2001);
   int bytesToRead = 2000;
@@ -299,4 +317,67 @@ char *hashFile(char *fileName, char* myhash){
   memcpy(myhash, hash, SHA_DIGEST_LENGTH*2);
   myhash[SHA_DIGEST_LENGTH*2] = '\0';
   return myhash;
+}
+int sendAll(int client,char* string,int size){
+  while(size>0){
+    int i=send(client,string,size,0);
+    if(i<1){
+	return 0;
+      }
+      string+=i;
+      size-=i;
+  }
+  return 1;
+}
+char* receiveAll(int client){
+  char* recvBuffer=malloc(sizeof(char)*2000);
+  memset(recvBuffer,'\0',2000);
+  char* message=malloc(sizeof(char)*2000);
+  memset(message,'\0',2000);
+  int bytesRead=0;
+  int i=1;
+  int j=1;
+  while(j>0){
+    j=recv(client,recvBuffer,2000,MSG_DONTWAIT);
+    bytesRead+=strlen(recvBuffer);
+    if(bytesRead>2000*i){
+      i++;
+      char* new=malloc(sizeof(char)*(2000*i));
+      memset(new,'\0',2000*i);
+      char* old=message;
+      new=memcpy(new,message,strlen(message));
+      message=new;
+      free(old);
+    }
+    strcat(message,recvBuffer);
+    memset(recvBuffer,'\0',2000);
+  }
+  printf("Message is %s\n",message);
+  return message;
+}
+char* receiveAll2(int client){
+  char* recvBuffer=malloc(sizeof(char)*2000);
+  memset(recvBuffer,'\0',2000);
+  char* message=malloc(sizeof(char)*2000);
+  memset(message,'\0',2000);
+  int bytesRead=0;
+  int i=1;
+  int j=1;
+  while(j>0){
+    j=recv(client,recvBuffer,2000,0);
+    bytesRead+=strlen(recvBuffer);
+    if(bytesRead>2000*i){
+      i++;
+      char* new=malloc(sizeof(char)*(2000*i));
+      memset(new,'\0',2000*i);
+      char* old=message;
+      new=memcpy(new,message,strlen(message));
+      message=new;
+      free(old);
+    }
+    strcat(message,recvBuffer);
+    memset(recvBuffer,'\0',2000);
+  }
+  printf("Message is %s\n",message);
+  return message;
 }

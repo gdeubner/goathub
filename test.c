@@ -7,6 +7,7 @@
 #include<string.h>
 #include<fcntl.h>
 #include<openssl/sha.h>
+#include"network.h"
 #define SA struct sockaddr
 void configure(char*,char*);
 char* nitwick(char**,int);
@@ -15,7 +16,6 @@ void sendFileName(int,char*);
 void requestFile(int,char*);
 void requestFile(int client,char* file){
   printf("Requesting file: %s\n",file);
-  sendFileName(client,file);
   int fd=open(file,O_RDWR);
   if(fd>0){
     remove(file);
@@ -26,11 +26,7 @@ void requestFile(int client,char* file){
   int bytesToRead=2000;
   char* buffer=malloc(sizeof(char)*2000);
   memset(buffer,'\0',2000);
-  if(fd>0){
-    remove(file);
-  }
-  fd=open(file,O_RDWR | O_CREAT, 00600);
-  do{
+  /*do{
     memset(buffer,'\0',2000);
     bytesRead=0;
     totalBytesRead=0;
@@ -51,66 +47,28 @@ void requestFile(int client,char* file){
     }
   }while(bytesRead!=0);
   printf("File received\n");
-  //free(fd);
+  //free(fd);*/
+  int size=readBytesNum(client);
+  char* fileContent=malloc(sizeof(char)*(size+1));
+  memset(fileContent,'\0',size+1);
+  read(client,fileContent,size);
+  printf("File Content is:\n %s \n",fileContent);
+  write(fd,fileContent,strlen(fileContent)+1);
   return;
 }
 void sendFileName(int client,char* name){
   write(client,name,strlen(name));
   return;
 }
-char* fileHash(char* file){
-  int fd=open(file,O_RDONLY);
-  int totalBytesRead=0;
-  int bytesRead=-2;
-  int bytesToRead=2000;
+
+char* nitwick(char** fileList,int argc){
+  int total=argc-2;
+  int ptr=0;
+  int i=2;
   char* buffer=malloc(sizeof(char)*2000);
   memset(buffer,'\0',2000);
-  int i=1;
-  do{
-    if(totalBytesRead==2000*i){
-      i++;
-      bytesToRead=2000;
-      char* temp=malloc(sizeof(char)*(2000*i));
-      memcpy(temp,'\0',(2000*i));
-      char* freestr=buffer;
-      strcpy(temp,buffer);
-      free(freestr);
-      buffer=temp;
-    }
-    bytesRead=0;
-    while(bytesRead<bytesToRead){
-      bytesRead=read(fd,buffer+totalBytesRead,bytesToRead-totalBytesRead);
-      totalBytesRead+=bytesRead;
-      if(bytesRead==0){
-	break;
-      }
-      if(bytesRead<0){
-	printf("Error:unable to read bytes from file");
-	close(fd);
-	free(buffer);
-	return;
-      }
-    }
-  }while(bytesRead!=0);
-  printf("%s\n",buffer);
-  unsigned char tmphash[SHA_DIGEST_LENGTH*2];
-  char* hash=malloc(sizeof(char)*SHA_DIGEST_LENGTH*2);
-  memset(hash,'\0',SHA_DIGEST_LENGTH);
-  SHA1(buffer,strlen(buffer),hash);
-  i=0;
-  for(i=0; i<SHA_DIGEST_LENGTH;i++){
-    sprintf((char*)&(hash[i*2]),"%02x",tmphash[i]);
-  }
-  printf("Hash is %s\n",hash);
-  return hash;
-}
-char* nitwick(char** fileList,int argc){
-  int total=argc-1;
-  int ptr=0;
-  int i=1;
-  char* buffer=malloc(sizeof(char)*2000);
   //First command assumption
-  strcat(buffer,fileList[0]);
+  strcat(buffer,fileList[1]);
   strcat(buffer,":");
   int t=total;
   int len=0;
@@ -118,11 +76,15 @@ char* nitwick(char** fileList,int argc){
     t=t/10;
     len++;
   }
+  strcat(buffer,"0");
+  strcat(buffer,":");
   char fileTotal[len];
   sprintf(fileTotal,"%i",total);
-  memset(buffer,'\0',2000);
   strcat(buffer,fileTotal);
   strcat(buffer,":");
+  /*char* args=itoa(args,argc);
+  strcat(buffer,args);
+  strcat(buffer,":");*/
   while(i<argc){
     char* temp=fileList[i];
     struct stat buf;
@@ -139,7 +101,7 @@ char* nitwick(char** fileList,int argc){
     strcat(buffer,":");
     strcat(buffer,temp);
     strcat(buffer,":");
-    char* hash=fileHash(temp);
+    char* hash=hashFile(temp,hash);
     printf("%s\n",hash);
     int hashlen=strlen(hash);
     char temp2[hashlen];
@@ -150,6 +112,16 @@ char* nitwick(char** fileList,int argc){
     strcat(buffer,":");
     i++;
   }
+  int strLen=strlen(buffer);
+  char* temp=itoa(temp,strLen);
+  char* new=malloc(sizeof(char)*(strLen+strlen(temp)));
+  memset(new,'\0',strlen(new));
+  strcat(new,temp);
+  strcat(new,":");
+  strcat(new,buffer);
+  char* old=buffer;
+  buffer=new;
+  free(old);
   printf("%s\n",buffer);
   return buffer;
 }
@@ -204,8 +176,6 @@ int main(int argc, char** argv){
   char* IP;
   char* port;
   int configurefd;
-  char* nprotocal=nitwick(argv,argc);
-  printf("Network protocal is %s\n",nprotocal);
   if(argc>1&&strcmp("configure",argv[1])==0){
     configure(argv[2],argv[3]);
     exit(0);
@@ -215,8 +185,8 @@ int main(int argc, char** argv){
       close(configurefd);
       exit(0);
     }else{
-      IP=argv[1];
-      port=argv[2];
+      IP=argv[argc-2];
+      port=argv[argc-1];
     }
   }else{
     configurefd=open(".configure",O_RDONLY);
@@ -262,6 +232,8 @@ int main(int argc, char** argv){
     }
     printf("Port is %s\n",port);
   }
+  char* nprotocal=nitwick(argv,argc);
+  printf("Network protocal is %s\n",nprotocal);
   int sockfd=socket(AF_INET,SOCK_STREAM,0);
   if(sockfd<0){
     printf("Socket failed\n");
@@ -282,9 +254,27 @@ int main(int argc, char** argv){
   }else{
     printf("Connected\n");
   }
+  if(sendAll(sockfd,nprotocal,strlen(nprotocal))==1){
+      printf("Message sent\n");
+  }else{
+    printf("Message failed\n");
+  }
+  requestFile(sockfd,"test4.txt");
+  //char* message=malloc(sizeof(char)*2000);
+  //memset(message,'\0',2000);
+  /*char* message=malloc(sizeof(char)*12);//receiveAll(sockfd);
+  memset(message,'\0',12);
+  read(sockfd,message,11);
+  
+  printf("Message from Server is:%s\n",message);*/
+  //read(sockfd,message,2000);
+  //char* message=receiveAll2(sockfd);
+  //requestFile(sockfd,"test4.txt");
+  //recv(sockfd,recvBuffer,sizeof(recvBuffer),0);
+  //printf("%s\n",recvBuffer);
   //sendFileName(sockfd,argv[1]);
-  requestFile(sockfd,argv[1]);
-  int i=2;
+  //requestFile(sockfd,argv[1]);
+  //int i=2;
   /*while(i<argc){
     sendFileName(sockfd,argv[i]);
     sendFile(sockfd,argv[i]);

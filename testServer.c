@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include "network.h"
 #define SA struct sockaddr
 void receiveFile(int,char*);
 char* receiveFileName(int);
@@ -21,16 +22,19 @@ void sendFile(int client,char* name){
     return;
   }
   char* buffer=malloc(sizeof(char)*2000);
+  char* fileContent=malloc(sizeof(char)*2000);
+  memset(fileContent,'\0',2000);
   int totalBytesRead=0;
   int bytesRead=-2;
   int bytesToRead=2000;
-  printf("Sending file\n");
+  int i=1;
+  printf("Sending file: %s\n",name);
   do{
     memset(buffer,'\0',bytesToRead);
     bytesRead=0;
-    totalBytesRead=0;
-    while(bytesRead<bytesToRead){
-      bytesRead=read(fd,buffer+totalBytesRead,bytesToRead-totalBytesRead);
+    //totalBytesRead=0;
+    while(bytesRead<=bytesToRead){
+      bytesRead=read(fd,buffer+totalBytesRead,bytesToRead);
       totalBytesRead+=bytesRead;
       if(bytesRead==0){
 	break;
@@ -40,10 +44,29 @@ void sendFile(int client,char* name){
 	close(fd);
 	exit(0);
       }
-      printf("Sending data: %s",buffer);
-      write(client,buffer,strlen(buffer));
+      if(totalBytesRead>=2000*i){
+      i++;
+      char* new=malloc(sizeof(char)*(2000*i));
+      memset(new,'\0',2000*i);
+      memcpy(new,fileContent,strlen(fileContent));
+      char* old=fileContent;
+      fileContent=new;
+      free(old);
+      }
+      strcat(fileContent,buffer);
     }
   }while(bytesRead!=0);
+  int fileSize=strlen(fileContent);
+  char* temp=itoa(temp,fileSize);
+  printf("%d\n",fileSize);
+  printf("%s\n",temp);
+  char* toSend=malloc(sizeof(char)*(fileSize+strlen(temp)));
+  strcat(toSend,temp);
+  strcat(toSend,":");
+  strcat(toSend,fileContent);
+  write(client,toSend,strlen(toSend));
+  //sendAll(client,fileContent,strlen(fileContent));
+  printf("File content is: \n %s \n",toSend);
   printf("File Sent: %s\n",name);
 }
 char* receiveFileName(int client){
@@ -120,7 +143,7 @@ int main(int argc, char** argv){
     printf("Socket binded\n");
   }
   int clientfd;
-  do{
+  //do{
   if(listen(sockfd,5)!=0){
     printf("Listen failed \n");
     close(sockfd);
@@ -132,7 +155,7 @@ int main(int argc, char** argv){
   int len=sizeof(cli);
   //int clientfd;
   
-  clientfd=accept(sockfd,(SA*)&cli,&len);
+  while(clientfd=accept(sockfd,(SA*)&cli,&len)){//;
   if(clientfd<0){
     printf("Server accept failed\n");
     close(clientfd);
@@ -141,11 +164,34 @@ int main(int argc, char** argv){
   }else{
     printf("Server accepted the client\n");
   }
-  char* name=receiveFileName(clientfd);
-  sendFile(clientfd,name);
-  //receiveFile(clientfd,name);
-  //close(clientfd);
-  }while(clientfd!=0);
+  int bytes=readBytesNum(clientfd);
+  message* clientCommand=recieveMessage(clientfd,clientCommand,bytes);
+  printf("Command is: %s\n",clientCommand->cmd);
+  //read(clientfd,message,bytes);
+  //char* message=receiveAll(clientfd);
+  //printf("Client says: %s",message);
+  //printf("Arg is, %s\n",clientCommand->args[0]);
+  //printf("Current file is, %s\n",clientCommand->filepaths[0]);
+  //printf("Current dir is, %s\n",clientCommand->dirs);
+  //printf("Current file is, %s\n",clientCommand->filepaths[0]);
+  if(strcmp(clientCommand->cmd,"request")==0){
+    printf("Matches\n");
+    int i=0;
+    printf("%d\n",clientCommand->numfiles);
+    while(i<clientCommand->numfiles){
+      printf("Current file is, %s\n",clientCommand->filepaths[0]);
+      sendFile(clientfd,clientCommand->filepaths[0]);
+      i++;
+    }
+  }
+  //freeMSG(clientCommand);
+  /*char* sendBack="Message got";
+  if(sendAll(clientfd,sendBack,strlen(sendBack))==1){
+    printf("Response sent\n");
+  }else{
+    printf("Response failed\n");
+  }*/
+  }//while(clientfd!=0);
   close(clientfd);
   return 0;
 }

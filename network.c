@@ -8,53 +8,15 @@
 #include <errno.h>
 #include <unistd.h>
 #include <openssl/sha.h>
-#include "gStructs.h"
 #include "network.h"
-
-int copyFile(int ffd, int ifd){
-  char *buffer = malloc(sizeof(char)*2001);
-  int bytesToRead = 2000;
-  int totalBytesRead = 0; //all bytes read 
-  int bytesRead = 0;  //bytes read in one iteration of read()
-  do{   //fills buffer from ifd
-    memset(buffer, '\0', 2001);
-    bytesRead = 0;
-    totalBytesRead = 0;
-    while(totalBytesRead < bytesToRead){ // makes sure buffer gets filled
-      bytesRead = read(ifd, buffer+totalBytesRead, bytesToRead-totalBytesRead);
-      totalBytesRead+=bytesRead;
-      if(bytesRead==0)
-	break;
-      if(bytesRead<0){
-	printf("Fatal Error: Unable to read bytes from file. Errno: %d\n", errno);
-	exit(0);
-      }
-    }
-    int bytesToWrite = strlen(buffer);
-    int totalBytesWritten = 0; //all bytes read 
-    int bytesWritten = 0;  //bytes read in one iteration of read()
-    do{   //writes buffer to ffd 
-      bytesWritten = 0;
-      while(totalBytesWritten < bytesToWrite){ // makes sure buffer gets filled
-	bytesWritten = write(ffd, buffer+totalBytesWritten, bytesToWrite-totalBytesWritten);
-	totalBytesWritten+=bytesWritten;
-	if(bytesWritten==0)
-	  break;
-	if(bytesWritten<0){
-	  printf("Fatal Error: Unable to write bytes to file. Errno: %d\n", errno);
-	  exit(0);
-	}
-      }
-    }while(bytesWritten != 0);
-  }while(bytesRead != 0);
-  return 0;
-}
+#include "gStructs.h"
+#include "fileManip.h"
 
 int freeMSG(message *msg){ // assumes all pointers were malloced!
   free(msg->cmd);
   if(msg->numargs>0){
     while(msg->numargs>0){
-      free(msg->args[msg->numargs]);
+      free(msg->args[msg->numargs-1]);
       msg->numargs--;
     }
     free(msg->args);
@@ -92,7 +54,7 @@ message *recieveMessage(int fd, message *msg){
       break;
     if(bytesRead<0){
       printf("Fatal Error: Unable to read bytes from message file. Errno: %d\n", errno);
-      exit(0);
+      return NULL;
     }
   }
   sizeOfFile+=strlen(buffer);
@@ -233,35 +195,7 @@ int sendMessage(int fd, message *msg){
   free(buffer);
   return 0;
 }
-char *itoa(char *snum, int num){
-  int isNeg = 0;
-  int count = 0;
-  int tnum = num;
-  if(num==0){
-    snum = malloc(sizeof(char)*2);
-    memcpy(snum, "0\0", 2);
-    return snum;
-  }
-  if(num<0){
-    isNeg = 1;
-    num*=-1;
-  }
-  while(tnum!=0){
-    tnum/=10;
-    count++;
-  }
-  snum = malloc(sizeof(char)*(isNeg+count+1));
-  snum[isNeg+count] = '\0';
-  while(num!=0){
-    int temp = num%10 + 48;
-    count--;
-    snum[isNeg+count] = temp;
-    num/=10;
-  }
-  if(isNeg)
-    snum[0]='-';
-  return snum;
-}
+
 
 char *hashFile(char *fileName, char* myhash){
   unsigned char md[SHA_DIGEST_LENGTH];
@@ -270,6 +204,10 @@ char *hashFile(char *fileName, char* myhash){
   //creates hash
   int bytesToRead = 2000;   
   int fd = open(fileName, O_RDONLY);
+  if(fd<0){
+    printf("Fatal Error: unable to hash file %s\n", fileName);
+    return NULL;
+  }
   char *buffer  = NULL;
   buffer = (char*)malloc(sizeof(char)*(bytesToRead+1));
   int totalBytesRead = 0; //all bytes read 

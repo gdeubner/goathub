@@ -1,5 +1,5 @@
-all: wtf.c gStructs.o network.o
-	gcc wtf.c gStructs.o network.o -o WTF -lssl -lcrypto
+all: wtf.c gStructs.o fileManip.o network.o
+	gcc wtf.c gStructs.o fileManip.o network.o  -o WTF -lssl -lcrypto
 
 gStructs.o:
 	gcc -c gStructs.c
@@ -7,11 +7,14 @@ gStructs.o:
 network.o:
 	gcc -c network.c
 
-gdb: wtf.c gStructs.o network.o
-	gcc -g wtf.c gStructs.o network.o -o WTF  -lssl -lcrypto
+fileManip.o:
+	gcc -c fileManip.c
 
-comp: wtf.c gStructs.o network.o
-	gcc -g -Wall -fsanitize=address wtf.c gStructs.o network.o -o WTF  -lssl -lcrypto
+gdb: wtf.c gStructs.o network.o fileManip.o
+	gcc -g wtf.c gStructs.o network.o fileManip.o -o WTF  -lssl -lcrypto
+
+comp: wtf.c gStructs.o network.o fileManip.o
+	gcc -g -Wall -fsanitize=address wtf.c gStructs.o network.o fileManip.o -o WTF  -lssl -lcrypto
 
 clean:
-	rm -f WTF; rm -f gStructs.o; rm -f network.o; rm -f serverfd; rm -f clientfd; rm -f dir/.Manifest; rmdir dir; rm -f serverdir/.Manifest; rmdir serverdir
+	rm -f WTF; rm -f gStructs.o; rm -f network.o; rm -f fileManip.o; rm -f serverfd; rm -f clientfd; rm dir/.Manifest; rmdir dir; rm  serverdir/.Manifest; rmdir serverdir

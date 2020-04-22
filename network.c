@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include "gStructs.h"
 #include "network.h"
+#include "fileManip.h"
 int readBytesNum(int client){
   char* buffer=malloc(sizeof(char)*50);
   memset(buffer,'\0',50);

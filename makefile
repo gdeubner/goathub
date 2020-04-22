@@ -12,6 +12,8 @@ gdb: wtf.c gStructs.o network.o
 
 comp: wtf.c gStructs.o network.o
 	gcc -g -Wall -fsanitize=address wtf.c gStructs.o network.o -o WTF  -lssl -lcrypto
+fileManip.o:
+	gcc -c fileManip.c
 server: testServer.c
 	gcc -g network.o -lcrypto testServer.c -o server
 client: network.o test.c

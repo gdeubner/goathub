@@ -26,7 +26,7 @@ int readBytesNum(int client){
   }
   buffer[ptr]='\0';
   int bytes=atoi(buffer);
-  printf("%d\n",bytes);
+  free(buffer);
   return bytes;
 }
 int copyFile(int ffd, int ifd){
@@ -90,7 +90,7 @@ int freeMSG(message *msg){ // assumes all pointers were malloced!
   return 0;
 }
 
-message *recieveMessage(int fd, message *msg,int size){
+message *recieveMessage(int fd, message *msg){
   msg = malloc(sizeof(message));
   char d = ':'; // for deliminator
   int bytesToRead = size;   
@@ -164,10 +164,8 @@ message *recieveMessage(int fd, message *msg,int size){
   }
   for(i=0; i<msg->numfiles; i++){  //gets each file's meta data
     msg->dirs[i] = buffer[ptr]; // dir of file
-    printf("%c\n",buffer[ptr]);
     ptr++;ptr++; prev = ptr;
     while(buffer[ptr]!=d){ptr++;} //length of file name
-    printf("%c\n",buffer[ptr]);
     temp = malloc(sizeof(char)*(ptr-prev+1));
     memcpy(temp, buffer+prev, ptr-prev);
     int len = atoi(temp);

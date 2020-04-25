@@ -2,8 +2,81 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "gStructs.h"
 #include "fileManip.h"
+
+//finds the first instance of str in file fd and returns the offset str was found at
+
+int findFile(char* parent, char *child){
+  DIR *dir = opendir(parent); //reference to current directory 
+  if(dir==NULL){
+    printf("Error: %s is not a valid directory name.\n", parent);
+    return-1;
+  }
+  struct dirent *de;
+  de = readdir(dir);//skips past the . and .. in directory
+  de = readdir(dir);
+  while((de = readdir(dir))!=NULL){    
+    if(de->d_type =  DT_REG)
+      if(strcmp(de->d_name, child)==0){
+	int fd = open(de->d_name, O_RDWR);
+	return fd;
+      }
+  }
+  return 0;
+}
+int findDir(char* parent, char *child){
+  DIR *dir = opendir(parent); //reference to current directory 
+  if(dir==NULL){
+    printf("Error: %s is not a valid directory name.\n", parent);
+    return-1;
+  }
+  struct dirent *de;
+  de = readdir(dir);//skips past the . and .. in directory
+  de = readdir(dir);
+  while((de = readdir(dir))!=NULL){    
+    if(de->d_type =  DT_DIR)
+      if(strcmp(de->d_name, child)==0)
+	return 1;
+  }
+  return 0;
+}
+
+int strfile(char *file, char *str){ 
+  int fd = open(file, O_RDWR);
+  if(fd<0){
+    printf("Fatal Error: Unable to open the file.\n");
+    return -1;
+  }
+  struct stat st;  //might need to free???
+  stat(file, &st);
+  int fileSize = st.st_size;
+  char *buffer = NULL;
+  char *ptr = NULL;
+  int filePos = 0;
+  int buffSize = 2000;
+  while(ptr==NULL && filePos<fileSize){
+    buffer = readNFile(fd, buffSize, buffer);
+    ptr = strstr(buffer, str);
+    if(ptr==NULL){
+      lseek(fd, -(strlen(str)+10), SEEK_CUR);  
+      if(filePos==0) 
+	filePos+=(strlen(str)+10);
+      filePos+= (buffSize-strlen(str)+10);
+    }else{
+      filePos+=(ptr-buffer);
+    }
+  }
+  close(fd);
+  free(buffer);
+  if(ptr==NULL){ //str not found in file
+    return -2;
+  }
+  return filePos;
+}
 
 //copies up to n bytes from ifd to ffd
 int copyNFile(int ffd, int ifd, int n){  //figure out how to only copy n bytes*******************

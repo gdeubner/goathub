@@ -10,7 +10,24 @@
 #include"network.h"
 #define SA struct sockaddr
 message* buildMessage(char**,int,int);
-int buildClient(char*,char*);
+
+int checkoutC(char *project){
+  if(findDir(".", project)>0){
+    printf("Warning: Project %s already exists locally.\n", project);
+    //int configfd = findFile(".", ".config")
+    int configfd = open("./.Configure", O_RDONLY);
+    if(configfd < 0){
+      printf("Error: No .Configure file found.\n");
+    }
+    
+
+    return -1;
+  }
+  // now read the cogfig file to set up the conection with the server  
+  //check if project is on server
+  return 0;
+}
+
 int buildClient(char* IP,char* port){
   int sockfd=socket(AF_INET,SOCK_STREAM,0);
   if(sockfd<0){
@@ -62,19 +79,26 @@ message* buildMessage(char** argv,int argc,int ipCheck){
   }
   return msg;
 }
-void configure(char*,char*);
-void configure(char* IP,char* port){
+int configure(char* IP,char* port){
   int fd=open(".configure",O_RDWR);
   if(fd>0){
+    close(fd);
     remove(".configure"); 
   }
   fd=open(".configure",O_RDWR|O_CREAT,00600);
-  write(fd,IP,strlen(IP));
-  write(fd,"\t",1);
-  write(fd,port,strlen(port));
+  char *buffer = malloc(sizeof(char)*(strlen(IP)+strlen(port)+2));
+  memset(buffer, '\0', (strlen(IP)+strlen(port)+2));
+  strcat(buffer, IP);
+  strcat(buffer, "\t");
+  strcat(buffer, port);
+  write(fd, buffer, strlen(buffer));
+  
+  /* write(fd,IP,strlen(IP)); */
+  /* write(fd,"\t",1); */
+  /* write(fd,port,strlen(port)); */
   printf("Configuration set\n");
   close(fd);
-  return;
+  return 1;
 }
 int ipPort(char**,int,char*,char*);
 int ipPort(char** argv,int argc,char* IP,char* port){

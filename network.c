@@ -15,7 +15,7 @@
 #include "network.h"
 #include "fileManip.h"
 int readBytesNum(int client){
-  char* buffer=malloc(sizeof(char)*50);
+  char* buffer = malloc(sizeof(char)*50);
   memset(buffer,'\0',50);
   int ptr=0;
   char currentChar;
@@ -27,7 +27,6 @@ int readBytesNum(int client){
   buffer[ptr]='\0';
   int bytes=atoi(buffer);
   printf("%d\n",bytes);
-  free(buffer);
   return bytes;
 }
 int copyFile(int ffd, int ifd){
@@ -91,10 +90,10 @@ int freeMSG(message *msg){ // assumes all pointers were malloced!
   return 0;
 }
 
-message *recieveMessage(int fd, message *msg){
+message *recieveMessage(int fd, message *msg,int size){
   msg = malloc(sizeof(message));
   char d = ':'; // for deliminator
-  int bytesToRead = 2000;   
+  int bytesToRead = size;   
   lseek(fd, 0, SEEK_SET);
   char *buffer  = NULL;
   buffer = (char*)malloc(sizeof(char)*(bytesToRead+1));
@@ -165,8 +164,10 @@ message *recieveMessage(int fd, message *msg){
   }
   for(i=0; i<msg->numfiles; i++){  //gets each file's meta data
     msg->dirs[i] = buffer[ptr]; // dir of file
-    ptr++; prev = ptr;
+    printf("%c\n",buffer[ptr]);
+    ptr++;ptr++; prev = ptr;
     while(buffer[ptr]!=d){ptr++;} //length of file name
+    printf("%c\n",buffer[ptr]);
     temp = malloc(sizeof(char)*(ptr-prev+1));
     memcpy(temp, buffer+prev, ptr-prev);
     int len = atoi(temp);

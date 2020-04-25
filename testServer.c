@@ -2,14 +2,56 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <dirent.h>
 #include "network.h"
 #define SA struct sockaddr
 void receiveFile(int,char*);
+int destroy(char*);
+//Will need to look at again after commit is finished so we can destroy pending commits
+//Recursively removes project directory, files and sub directories, returns 0 on success 
+int destroy(char* path){
+  DIR *dir=opendir(path);
+  int dirLen=strlen(path);
+  int check=-1;
+  if(dir){
+    struct dirent *ptr;
+    check=0;
+    while(!check&&(ptr=readdir(dir))){
+	int check2=-1;
+	char* curFile;
+	int len;
+	if((strcmp(ptr->d_name,".")==0)||(strcmp(ptr->d_name,"..")==0)){
+	  continue;
+	}
+	len=dirLen+strlen(ptr->d_name)+2;
+	curFile=malloc(sizeof(char)*len);
+	if(curFile){
+	  struct stat buf;
+	  snprintf(curFile,len,"%s/%s",path,ptr->d_name);
+	  if(!stat(curFile,&buf)){
+	    if(S_ISDIR(buf.st_mode)){
+	      check2=destroy(curFile);
+	    } else{
+	      check2=unlink(curFile);
+	    }
+	  }
+	  free(curFile);
+	}
+	check=check2;
+    }
+      closedir(dir);
+  }
+  if(!check){
+    check=rmdir(path);
+    }
+  return check;
+}
 char* receiveFileName(int);
 void sendFile(int,char*);
 void sendFile(int client,char* name){
@@ -57,11 +99,27 @@ void sendFile(int client,char* name){
     }
   }while(bytesRead!=0);
   int fileSize=strlen(fileContent);
-  char* temp=itoa(temp,fileSize);
+  int count;
+  char* prefix;
+  if(fileSize==0){
+    prefix=malloc(sizeof(char)*2);
+    prefix[0]=0;
+    prefix[1]='\0';
+  }else{
+    while(fileSize!=0){
+      fileSize=fileSize/10;
+      count++;
+    }
+    prefix=malloc(sizeof(char)*count+1);
+    prefix[count]='\0';
+    sprintf(prefix,"%i",count);
+  }
+  //prefix=itoa(prefix,fileSize);
   printf("%d\n",fileSize);
-  printf("%s\n",temp);
-  char* toSend=malloc(sizeof(char)*(fileSize+strlen(temp)));
-  strcat(toSend,temp);
+  printf("%s\n",prefix);
+  char* toSend=malloc(sizeof(char)*(fileSize+strlen(prefix)+1));
+  memset(toSend,'\0',(fileSize+strlen(prefix)+1));
+  strcat(toSend,prefix);
   strcat(toSend,":");
   strcat(toSend,fileContent);
   write(client,toSend,strlen(toSend));
@@ -122,6 +180,11 @@ void receiveFile(int client,char* name){
   return;
 }
 int main(int argc, char** argv){
+  destroy("temp");
+  int test=5434;
+  char* temp;
+  temp=itoa(temp,test);
+  printf("%s\n",temp);
   int sockfd=socket(AF_INET,SOCK_STREAM,0);
   if(sockfd<0){
     printf("Socket failed\n");
@@ -156,42 +219,17 @@ int main(int argc, char** argv){
   //int clientfd;
   
   while(clientfd=accept(sockfd,(SA*)&cli,&len)){//;
-  if(clientfd<0){
-    printf("Server accept failed\n");
-    close(clientfd);
-    close(sockfd);
-    exit(0);
-  }else{
-    printf("Server accepted the client\n");
-  }
-  int bytes=readBytesNum(clientfd);
-  message* clientCommand=recieveMessage(clientfd,clientCommand,bytes);
-  printf("Command is: %s\n",clientCommand->cmd);
-  //read(clientfd,message,bytes);
-  //char* message=receiveAll(clientfd);
-  //printf("Client says: %s",message);
-  //printf("Arg is, %s\n",clientCommand->args[0]);
-  //printf("Current file is, %s\n",clientCommand->filepaths[0]);
-  //printf("Current dir is, %s\n",clientCommand->dirs);
-  //printf("Current file is, %s\n",clientCommand->filepaths[0]);
-  if(strcmp(clientCommand->cmd,"request")==0){
-    printf("Matches\n");
-    int i=0;
-    printf("%d\n",clientCommand->numfiles);
-    while(i<clientCommand->numfiles){
-      printf("Current file is, %s\n",clientCommand->filepaths[0]);
-      sendFile(clientfd,clientCommand->filepaths[0]);
-      i++;
+    if(clientfd<0){
+      printf("Server accept failed\n");
+      close(clientfd);
+      close(sockfd);
+      exit(0);
+    }else{
+      printf("Server accepted the client\n");
     }
   }
-  //freeMSG(clientCommand);
-  /*char* sendBack="Message got";
-  if(sendAll(clientfd,sendBack,strlen(sendBack))==1){
-    printf("Response sent\n");
-  }else{
-    printf("Response failed\n");
-  }*/
-  }//while(clientfd!=0);
+  //int bytes=readBytesNum(clientfd);
+  //message* clientCommand=recieveMessage(clientfd,clientCommand,bytes);
   close(clientfd);
   return 0;
 }

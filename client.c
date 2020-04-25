@@ -76,12 +76,10 @@ void configure(char* IP,char* port){
   close(fd);
   return;
 }
-int main(int argc, char** argv){
-  char* IP;
-  char* port;
+int ipPort(char**,int,char*,char*);
+int ipPort(char** argv,int argc,char* IP,char* port){
   int configurefd;
-  int IPCheck=0;
-  if(argc>1&&strcmp("configure",argv[1])==0){
+    if(argc>1&&strcmp("configure",argv[1])==0){
     configure(argv[2],argv[3]);
     exit(0);
   }else if(configurefd=open(".configure",O_RDONLY)<0){
@@ -90,9 +88,13 @@ int main(int argc, char** argv){
       close(configurefd);
       exit(0);
     }else{
-      IP=argv[argc-2];
-      port=argv[argc-1];
-      IPCheck=1;
+      memset(IP,'\0',strlen(argv[argc-2])+1);
+      memcpy(IP,argv[argc-2],strlen(argv[argc-2]));
+      memset(port,'\0',strlen(argv[argc-1])+1);
+      memcpy(port,argv[argc-1],strlen(argv[argc-1]));
+      printf("IP is: %s\n",IP);
+      printf("Port is: %s\n",port);
+      return 1;
     }
   }else{
     configurefd=open(".configure",O_RDONLY);
@@ -123,11 +125,8 @@ int main(int argc, char** argv){
 	break;
       }
     }
-    IP=malloc(sizeof(char)*dlm);
     strncpy(IP,buffer,dlm);
     IP[dlm]='\0';
-    printf("IP is: %s\n",IP);
-    port=malloc(sizeof(char)*6);
     dlm++;
     memset(port,'\0',6);
     int ptr=0;
@@ -136,8 +135,15 @@ int main(int argc, char** argv){
       dlm++;
       ptr++;
     }
-    printf("Port is %s\n",port);
-  }
+    return 0;
+    }
+}
+int main(int argc, char** argv){
+  char* IP=malloc(sizeof(char)*2000);
+  char* port=malloc(sizeof(char)*2000);
+  int IPCheck=ipPort(argv,argc,IP,port);
+  printf("IP is: %s\n",IP);
+  printf("Port is: %s\n",port);
   int sockfd=buildClient(IP,port);
   close(sockfd);
   return 0;

@@ -93,7 +93,7 @@ int freeMSG(message *msg){ // assumes all pointers were malloced!
 message *recieveMessage(int fd, message *msg){
   msg = malloc(sizeof(message));
   char d = ':'; // for deliminator
-  int bytesToRead = size;   
+  int bytesToRead = 2000;   
   lseek(fd, 0, SEEK_SET);
   char *buffer  = NULL;
   buffer = (char*)malloc(sizeof(char)*(bytesToRead+1));

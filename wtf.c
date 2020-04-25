@@ -14,22 +14,40 @@
 #include "wtf.h"
 
 int main(int argc, char **argv){
-  createC(argv[1]);
-  add("dir", "test4.txt");
-  add("dir", "test2.txt");
-  add("dir", "test3.txt");
-  add("dir", "test3.txt");
-  add("dir", "test1.txt");
-  removeF("dir", "test4.txt");
-  removeF("dir", "test2.txt");
-  removeF("dir", "test3.txt");
-  removeF("dir", "test3.txt");
-  removeF("dir", "test1.txt");
-  removeF("dir", "test1.txt");
+  //createC(argv[1]);
   
-  
+  /* add("dir", "test1.txt"); */
+  /* removeF("dir", "test4.txt"); */
+    
   //int new = open("temp.txt", O_RDWR|O_CREAT, 00600);
   //int old = open("test2.txt", O_RDWR);
+  
+  return 0;
+}
+
+//returns 1 if directory child is found in directory parent, 0 if not, -1 on error
+
+int checkoutC(char *project){
+  if(findDir(".", project)>0){
+    printf("Warning: Project %s already exists locally.\n", project);
+    //int configfd = findFile(".", ".config")
+    int configfd = open("./.Configure", O_RDONLY);
+    if(configfd < 0){
+      printf("Error: No .Configure file found.\n");
+    }
+    
+
+    return -1;
+  }
+  // now read the cogfig file to set up the conection with the server
+  
+
+  
+  //check if project is on server
+  return 0;
+}
+
+int checkoutS(char *project){
   
   return 0;
 }
@@ -45,6 +63,14 @@ int removeF(const char *project, char *file){
   strcat(manPath, "./");
   strcat(manPath, project);
   strcat(manPath, "/.Manifest");
+  
+  char *filePath = malloc(sizeof(char)*(strlen(project)+strlen(file)+48));
+  memset(filePath, '\0', strlen(project)+strlen(file)+6);
+  strcat(filePath, "./");
+  strcat(filePath, project);
+  strcat(filePath, "/");
+  strcat(filePath, file);
+  
   int man = open(manPath, O_RDWR);
   if(man<0){
     printf("Fatal Error: Unable to open the %s/.Manifest file.\n", project);
@@ -53,23 +79,18 @@ int removeF(const char *project, char *file){
   struct stat st;  //might need to free???
   stat(manPath, &st);
   int manSize = st.st_size;
-  char *filePath = malloc(sizeof(char)*(strlen(project)+strlen(file)+48));
-  memset(filePath, '\0', strlen(project)+strlen(file)+6);
-  strcat(filePath, "./");
-  strcat(filePath, project);
-  strcat(filePath, "/");
-  strcat(filePath, file);
+  
   char *buffer = NULL;
   char * ptr = NULL;
   int filePos = 0;
   int buffSize = 2000;
-  while(ptr==NULL && filePos<manSize){  // probably works, may need to reduce loop run by 1 iteration
+  while(ptr==NULL && filePos<manSize){
     buffer = readNFile(man, buffSize, buffer);
     ptr = strstr(buffer, filePath);
     if(ptr==NULL){
-      lseek(man, -(strlen(filePath)+10), SEEK_CUR);  
-      if(filePos==0) 
-	filePos+=(strlen(filePath)+10);
+      lseek(man, -(strlen(filePath)+10), SEEK_CUR);
+      if(filePos==0)
+  	filePos+=(strlen(filePath)+10);
       filePos+= (buffSize-strlen(filePath)+10);
     }else{
       filePos+=(ptr-buffer);
@@ -123,6 +144,10 @@ int add(const char *project, char *file){
   strcat(manPath, "./");
   strcat(manPath, project);
   strcat(manPath, "/.Manifest");
+  if(strfile(manPath, file)>=0){
+    printf("Warning: File %s already exists in the .Manifest and cannot be added again.\n", file);
+    return -1;
+  }
   int man = open(manPath, O_RDWR);
   if(man<0){
     printf("Error: Unable to find the %s/.Manifest file.\n", project);

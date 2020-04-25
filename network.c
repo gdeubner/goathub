@@ -26,7 +26,6 @@ int readBytesNum(int client){
   }
   buffer[ptr]='\0';
   int bytes=atoi(buffer);
-  printf("%d\n",bytes);
   free(buffer);
   return bytes;
 }

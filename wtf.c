@@ -27,25 +27,6 @@ int main(int argc, char **argv){
 
 //returns 1 if directory child is found in directory parent, 0 if not, -1 on error
 
-int checkoutC(char *project){
-  if(findDir(".", project)>0){
-    printf("Warning: Project %s already exists locally.\n", project);
-    //int configfd = findFile(".", ".config")
-    int configfd = open("./.Configure", O_RDONLY);
-    if(configfd < 0){
-      printf("Error: No .Configure file found.\n");
-    }
-    
-
-    return -1;
-  }
-  // now read the cogfig file to set up the conection with the server
-  
-
-  
-  //check if project is on server
-  return 0;
-}
 
 int checkoutS(char *project){
   

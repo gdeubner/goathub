@@ -7,6 +7,6 @@ int copyNFile(int ffd, int ifd, int n);
 int copyFile(int ffd, int ifd);
 char *itoa(char *snum, int num);
 char *readNFile(int fd, int n, char *buffer);
-wnode* scanFile(int fd, wnode* head, char *delims);
+//wnode* scanFile(int fd, wnode* head, char *delims);
 
 #endif

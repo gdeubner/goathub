@@ -10,9 +10,11 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include "network.h"
+#include "fileManip.h"
+
 #define SA struct sockaddr
+
 void receiveFile(int,char*);
-int destroy(char*);
 //Will need to look at again after commit is finished so we can destroy pending commits
 //Recursively removes project directory, files and sub directories, returns 0 on success 
 int destroy(char* path){

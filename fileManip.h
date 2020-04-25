@@ -1,22 +1,8 @@
 #ifndef FILEMANIP_H
 #define FILEMANIP_H
 
-/* typedef struct WNODE{ */
-/*   int freq; */
-/*   char *str; */
-/*   char *byte; */
-/*   struct WNODE *next; */
-/*   int fragment; */
-/* } wnode; */
-
-/* typedef struct TNODE{ */
-/*   int freq; */
-/*   char *str; */
-/*   char *bytecode; */
-/*   struct TNODE *left; */
-/*   struct TNODE *right; */
-/* }tnode; */
-
+int findDir(char* parent, char *child);
+int strfile(char *file, char *str);
 int copyNFile(int ffd, int ifd, int n);
 int copyFile(int ffd, int ifd);
 char *itoa(char *snum, int num);

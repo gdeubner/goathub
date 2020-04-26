@@ -12,8 +12,6 @@
 #include "network.h"
 #include "client.h"
 
-#define SA struct sockaddr
-
 message* buildMessage(char**,int,int);
 void printManifest(char*);
 void printManifest(char* str){
@@ -197,7 +195,10 @@ int add(const char *project, char *file){
 
 int createC(char *projectName){
   //writes message to server fd
-  int serverfd = getServerFd();
+  int serverfd = buildClient();
+  if(serverfd<0){
+    printf("Error: Unable to cnnect to server.\n");
+  }
   message *msg = malloc(sizeof(message));
   msg->cmd = "create";
   msg->numargs = 1;
@@ -205,17 +206,14 @@ int createC(char *projectName){
   msg->args[0] = projectName;
   msg->numfiles = 0;
   sendMessage(serverfd, msg);
-  //wait for response, for testing, i'm just calling the server's createS here
   free(msg->args);
   free(msg);
-  createS(serverfd); //temporary
-  //replace
-  int clientfd = getClientFd();
-  //replace
-  msg = recieveMessage(clientfd, msg);
+  //is this right? is this how I recieve from server? (next line)
+  msg = recieveMessage(serverfd, msg);
   if(strcmp(msg->cmd, "Error")==0){
     printf(msg->args[0]);
     freeMSG(msg);
+    close(serverfd);
     return -1;
   }
   if(mkdir(projectName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)<0){
@@ -230,93 +228,16 @@ int createC(char *projectName){
     freeMSG(msg);
     return -1;
   }
-  copyFile(fd, clientfd);
+  copyFile(fd, serverfd);
   freeMSG(msg);
   free(manfile);
   close(fd);
-  close(serverfd); // temporary
-  close(clientfd); // temporary
+  close(serverfd);
   printf("Sucessfully added project %s to server and locally.\n", projectName);
   return 0;
 }
 
 
-
-int buildClient(){
-  char* IP=malloc(sizeof(char)*2000);
-  char* port=malloc(sizeof(char)*2000);
-  memset(port,'\0',2000);
-  memset(IP,'\0',2000);
-  int configurefd=open(".configure",O_RDONLY);
-  if(configurefd<0){
-    printf("ERROR: No configure file found\n");
-    close(configurefd);
-    exit(0);
-  }
-  char* buffer=malloc(sizeof(char)*2000);
-  memset(buffer,'\0',2000);
-  int totalBytesRead=0;
-  int bytesRead=-2;
-  int bytesToRead=2000;
-  do{
-    bytesRead=0;
-    totalBytesRead=0;
-    while(bytesRead<bytesToRead){
-      bytesRead=read(configurefd,buffer+totalBytesRead,bytesToRead-totalBytesRead);
-      totalBytesRead+=bytesRead;
-      if(bytesRead==0){
-        break;
-      }
-      if(bytesRead<0){
-        printf("Error: Unable to read bytes from .configure\n");
-        close(configurefd);
-        exit(0);
-      }
-    }
-  }while(bytesRead!=0);
-  int dlm;
-  for(dlm=0;dlm<strlen(buffer);dlm++){
-    if(buffer[dlm]=='\t'){
-      break;
-    }
-  }
-  strncpy(IP,buffer,dlm);
-  IP[dlm]='\0';
-  dlm++;
-  memset(port,'\0',6);
-  int ptr=0;
-  while(buffer[dlm]!='\0'){
-    port[ptr]=buffer[dlm];
-    dlm++;
-    ptr++;
-  }
-  free(buffer);
-  close(configurefd);
-
-  int sockfd=socket(AF_INET,SOCK_STREAM,0);
-  if(sockfd<0){
-    printf("Socket failed\n");
-    exit(0);
-  } else {
-    printf("Socket made\n");
-  }
-  struct sockaddr_in servAddr,cliAddr;
-  bzero(&servAddr,sizeof(servAddr));
-  servAddr.sin_family=AF_INET;
-  //local machine ip testing
-  servAddr.sin_addr.s_addr=inet_addr(IP);
-  servAddr.sin_port=htons(atoi(port));
-  if(connect(sockfd,(SA*)&servAddr,sizeof(servAddr))!=0){
-    printf("Server connection failed\n");
-    close(sockfd);
-    exit(0);
-  }else{
-    printf("Connected\n");
-  }
-  free(IP);
-  free(port);
-  return sockfd;
-}
 message* buildMessage(char** argv,int argc,int ipCheck){
   if(ipCheck==1){
     argc=argc-2;
@@ -358,10 +279,6 @@ int configure(char* IP,char* port){
   strcat(buffer, "\t");
   strcat(buffer, port);
   write(fd, buffer, strlen(buffer));
-  
-  /* write(fd,IP,strlen(IP)); */
-  /* write(fd,"\t",1); */
-  /* write(fd,port,strlen(port)); */
   printf("Configuration set\n");
   close(fd);
   return 1;
@@ -375,7 +292,7 @@ int main(int argc, char** argv){
   if(strcmp(argv[1], "configure")){
     configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "checkout")){
-    //
+    //checkout(argv[2]);
   }else if(strcmp(argv[1], "update")){
     //configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "upgrade")){
@@ -385,13 +302,13 @@ int main(int argc, char** argv){
   }else if(strcmp(argv[1], "push")){
     //configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "create")){
-    //createC(argv[2]);
+    createC(argv[2]);
   }else if(strcmp(argv[1], "destroy")){
     //configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "add")){
-    //configure(argv[2], argv[3]);
+    add(argv[2], argv[3]);
   }else if(strcmp(argv[1], "remove")){
-    //configure(argv[2], argv[3]);
+    removeF(argv[2], argv[3]);
   }else if(strcmp(argv[1], "currentversion")){
     //configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "history")){

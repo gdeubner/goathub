@@ -112,7 +112,7 @@ void sendFile(int client,char* name){
     }
     prefix=malloc(sizeof(char)*count+1);
     prefix[count]='\0';
-    sprintf(prefix,"%i",count);
+    sprintf(prefix,"%i",strlen(fileContent));
   }
   //prefix=itoa(prefix,fileSize);
   printf("%d\n",fileSize);
@@ -180,11 +180,6 @@ void receiveFile(int client,char* name){
   return;
 }
 int main(int argc, char** argv){
-  destroy("temp");
-  int test=5434;
-  char* temp;
-  temp=itoa(temp,test);
-  printf("%s\n",temp);
   int sockfd=socket(AF_INET,SOCK_STREAM,0);
   if(sockfd<0){
     printf("Socket failed\n");

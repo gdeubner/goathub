@@ -10,8 +10,94 @@
 #include"network.h"
 #define SA struct sockaddr
 message* buildMessage(char**,int,int);
-int buildClient(char*,char*);
-int buildClient(char* IP,char* port){
+void printManifest(char*);
+void printManifest(char* str){
+  char* temp=malloc(sizeof(char)*2000);
+  memset(temp,'\0',2000);
+  int ptr=0;
+  while(str[ptr]!='\n'){
+    temp[ptr]=str[ptr];
+    ptr++;
+  }
+  printf("Project version is: %d\n",atoi(temp));
+  ptr++;
+  //free(temp);
+  while(ptr<strlen(str)-1&&str[ptr]!='\0'){
+    //temp=malloc(sizeof(char)*2000);
+    memset(temp,'\0',2000);
+    int i=0;
+    while(str[ptr]!=' '){
+      temp[i]=str[ptr];
+      ptr++;
+      i++;
+    }
+    int fileVer=atoi(temp);
+    ptr++;
+    i=0;
+    memset(temp,'\0',2000);
+    while(str[ptr]!=' '){
+      temp[i]=str[ptr];
+      ptr++;
+      i++;
+    }
+    printf("File is: %s, and its version is: %d\n",temp,fileVer);
+    ptr+=5;//4 byte test hash plus new line
+    //ptr+=41;//40 bytes file hash and new line char
+  }
+  free(temp);
+  return;
+}
+int buildClient();
+int buildClient(){
+  char* IP=malloc(sizeof(char)*2000);
+  char* port=malloc(sizeof(char)*2000);
+  memset(port,'\0',2000);
+  memset(IP,'\0',2000);
+  int configurefd=open(".configure",O_RDONLY);
+  if(configurefd<0){
+    printf("ERROR: No configure file found\n");
+    close(configurefd);
+    exit(0);
+  }
+  char* buffer=malloc(sizeof(char)*2000);
+  memset(buffer,'\0',2000);
+  int totalBytesRead=0;
+  int bytesRead=-2;
+  int bytesToRead=2000;
+  do{
+    bytesRead=0;
+    totalBytesRead=0;
+    while(bytesRead<bytesToRead){
+      bytesRead=read(configurefd,buffer+totalBytesRead,bytesToRead-totalBytesRead);
+      totalBytesRead+=bytesRead;
+      if(bytesRead==0){
+        break;
+      }
+      if(bytesRead<0){
+        printf("Error: Unable to read bytes from .configure\n");
+        close(configurefd);
+        exit(0);
+      }
+    }
+  }while(bytesRead!=0);
+  int dlm;
+  for(dlm=0;dlm<strlen(buffer);dlm++){
+    if(buffer[dlm]=='\t'){
+      break;
+    }
+  }
+  strncpy(IP,buffer,dlm);
+  IP[dlm]='\0';
+  dlm++;
+  memset(port,'\0',6);
+  int ptr=0;
+  while(buffer[dlm]!='\0'){
+    port[ptr]=buffer[dlm];
+    dlm++;
+    ptr++;
+  }
+  free(buffer);
+  close(configurefd);
   int sockfd=socket(AF_INET,SOCK_STREAM,0);
   if(sockfd<0){
     printf("Socket failed\n");
@@ -32,6 +118,8 @@ int buildClient(char* IP,char* port){
   }else{
     printf("Connected\n");
   }
+  free(IP);
+  free(port);
   return sockfd;
 }
 message* buildMessage(char** argv,int argc,int ipCheck){
@@ -139,12 +227,7 @@ int ipPort(char** argv,int argc,char* IP,char* port){
     }
 }
 int main(int argc, char** argv){
-  char* IP=malloc(sizeof(char)*2000);
-  char* port=malloc(sizeof(char)*2000);
-  int IPCheck=ipPort(argv,argc,IP,port);
-  printf("IP is: %s\n",IP);
-  printf("Port is: %s\n",port);
-  int sockfd=buildClient(IP,port);
+  int sockfd=buildClient();//Copy this line at any point you want to create a fd that connects to server
   close(sockfd);
   return 0;
 }

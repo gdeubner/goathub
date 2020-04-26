@@ -2,7 +2,7 @@
 #define ELIENT_H
 
 
-int buildClient(char*,char*);
+int buildClient();
 int configure(char*,char*);
 
 int removeF(const char *project, char *file);

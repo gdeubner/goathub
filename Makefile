@@ -21,14 +21,14 @@ clean:
 
 
 gdb: wtf.c gStructs.o network.o
-	gcc -g wtf.c gStructs.o network.o -o WTF  -lssl -lcrypto
+	gcc -g wtf.c gStructs.o network.o -o test  -lssl -lcrypto
 
 comp: wtf.c gStructs.o network.o
-	gcc -g -Wall -fsanitize=address wtf.c gStructs.o network.o -o WTF  -lssl -lcrypto
+	gcc -g -Wall -fsanitize=address wtf.c gStructs.o network.o -o test  -lssl -lcrypto
 
 
-wtf: wtf.c gStructs.o network.o
-	gcc wtf.c gStructs.o network.o -o code -lssl -lcrypto
+test: wtf.c gStructs.o network.o
+	gcc wtf.c gStructs.o network.o -o test -lssl -lcrypto
 
 cleanall:
-	rm -f code; rm -f gStructs.o; rm -f network.o; rm -f serverfd; rm -f clientfd; rm -f dir/.Manifest; rmdir dir; rm -f serverdir/.Manifest; rmdir serverdir
+	rm -f test; rm -f gStructs.o; rm -f network.o; rm -f serverfd; rm -f clientfd; rm -f dir/.Manifest; rmdir dir; rm -f serverdir/.Manifest; rmdir serverdir

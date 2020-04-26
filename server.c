@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <unistd.h>
@@ -10,6 +11,10 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include "network.h"
+#include "fileManip.h"
+#include "gStructs.h"
+#include "server.h"
+
 #define SA struct sockaddr
 void receiveFile(int,char*);
 int destroy(char*);
@@ -52,134 +57,68 @@ int destroy(char* path){
     }
   return check;
 }
-char* receiveFileName(int);
-void sendFile(int,char*);
-void sendFile(int client,char* name){
-  int fd=open(name,O_RDONLY);
+
+int createS(int fd){
+  int clientfd = fd; //is this what too use to send to client?
+  wnode *fileLL = NULL;
+  fileLL = scanFile(fd, fileLL, ":");
+  char *projectName = fileLL->next->next->next->next->next->next->str;
+  projectName[strlen(projectName)-1] = '\0';
+  if(mkdir(projectName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)<0){
+    if(errno==EEXIST){
+      printf("Error: Project %s already exists. Reporting to client.\n", projectName);
+      message *msg = malloc(sizeof(message));
+      msg->cmd = "Error";
+      msg->numargs = 1;
+      msg->args = malloc(sizeof(char*));
+      msg->args[0] = "Error: Project already exists on the server.\0";
+      msg->numfiles = 0;
+      sendMessage(clientfd, msg);
+      free(msg->args);
+      free(msg);
+    }
+    //send message to client, saying that project already exists
+    printf("Error: Unable to create project %s\n", projectName);
+    return -1;
+  }
+  printf("Succefully created project %s\n", projectName);
+  int size = strlen(projectName);  
+  char *manFile = malloc(sizeof(char)*(size + 13));
+  memcpy(manFile, "./", 2);
+  memcpy(manFile+2, projectName, size);
+  memcpy(manFile + 2 + size, "/.Manifest\0", 11);
+  int mfd = open(manFile, O_RDWR|O_CREAT, 00600);//creates  server .Manifest
   if(fd<0){
-    printf("File does not exist");
-    char* msg="File does not exist";
-    //send(client,msg,strlen(msg));
-    close(fd);
-    return;
+    printf("Fatal Error: Unable to create .Manifest file for project %s.\n", projectName);
+    //alert client
+    return -1;
   }
-  char* buffer=malloc(sizeof(char)*2000);
-  char* fileContent=malloc(sizeof(char)*2000);
-  memset(fileContent,'\0',2000);
-  int totalBytesRead=0;
-  int bytesRead=-2;
-  int bytesToRead=2000;
-  int i=1;
-  printf("Sending file: %s\n",name);
-  do{
-    memset(buffer,'\0',bytesToRead);
-    bytesRead=0;
-    //totalBytesRead=0;
-    while(bytesRead<=bytesToRead){
-      bytesRead=read(fd,buffer+totalBytesRead,bytesToRead);
-      totalBytesRead+=bytesRead;
-      if(bytesRead==0){
-	break;
-      }
-      if(bytesRead<0){
-	printf("Error: Unable to read bytes from File\n");
-	close(fd);
-	exit(0);
-      }
-      if(totalBytesRead>=2000*i){
-      i++;
-      char* new=malloc(sizeof(char)*(2000*i));
-      memset(new,'\0',2000*i);
-      memcpy(new,fileContent,strlen(fileContent));
-      char* old=fileContent;
-      fileContent=new;
-      free(old);
-      }
-      strcat(fileContent,buffer);
-    }
-  }while(bytesRead!=0);
-  int fileSize=strlen(fileContent);
-  int count;
-  char* prefix;
-  if(fileSize==0){
-    prefix=malloc(sizeof(char)*2);
-    prefix[0]=0;
-    prefix[1]='\0';
-  }else{
-    while(fileSize!=0){
-      fileSize=fileSize/10;
-      count++;
-    }
-    prefix=malloc(sizeof(char)*count+1);
-    prefix[count]='\0';
-    sprintf(prefix,"%i",strlen(fileContent));
-  }
-  //prefix=itoa(prefix,fileSize);
-  printf("%d\n",fileSize);
-  printf("%s\n",prefix);
-  char* toSend=malloc(sizeof(char)*(fileSize+strlen(prefix)+1));
-  memset(toSend,'\0',(fileSize+strlen(prefix)+1));
-  strcat(toSend,prefix);
-  strcat(toSend,":");
-  strcat(toSend,fileContent);
-  write(client,toSend,strlen(toSend));
-  //sendAll(client,fileContent,strlen(fileContent));
-  printf("File content is: \n %s \n",toSend);
-  printf("File Sent: %s\n",name);
+  write(fd, "1\n", 2);
+  //send client .Manifest file
+  message *msg = malloc(sizeof(message));
+  msg->cmd = "fileTransfer";
+  msg->numargs = 0;
+  msg->args = NULL;
+  msg->numfiles = 1;
+  msg->dirs = malloc(sizeof(char)*2);
+  memcpy(msg->dirs, "0\0", 2);
+  msg->filepaths = malloc(sizeof(char*));
+  msg->filepaths[0] = manFile;
+  sendMessage(clientfd, msg);
+  free(msg->dirs);
+  free(msg->filepaths);
+  free(msg);
+  free(manFile);
+  close(mfd);
+  close(clientfd);  // tremporary
+  return 0;
 }
-char* receiveFileName(int client){
-  char* temp=malloc(sizeof(char)*2000);
-  memset(temp,'\0',2000);
-  read(client,temp,2000);
-  int l=strlen(temp);
-  char* name=malloc(sizeof(char)*l+1);
-  name[l]='\0';
-  strncpy(name,temp,l);
-  free(temp);
-  printf("File name received: %s\n",name);
-  return name;
-}
-void receiveFile(int client,char* name){
-  char* buffer=malloc(sizeof(char)*2000);
-  memset(buffer,'\0',2000);
-  //read(client,buffer,2000);
-  char* fileName=name;
-  printf("File is: %s\n",fileName);
-  int fd=open(fileName,O_RDWR);
-  if(fd<0){
-    fd=open(fileName,O_RDWR | O_CREAT, 00600);
-  }else{
-    remove(fileName);
-    fd=open(fileName,O_RDWR | O_CREAT, 00600);
-  }
-  int totalBytesRead=0;
-  int bytesRead=-2;
-  int bytesToRead=2000;
-  printf("Receiving file\n");
-  do{
-    memset(buffer,'\0',bytesToRead);
-    bytesRead=0;
-    totalBytesRead=0;
-    while(bytesRead<bytesToRead){
-      bytesRead=read(client,buffer+totalBytesRead,bytesToRead-totalBytesRead);
-      totalBytesRead+=bytesRead;
-      if(bytesRead==0){
-	break;
-      }
-      if(bytesRead<0){
-	printf("Error: Unable to read bytes from File\n");
-	close(fd);
-	exit(0);
-      }
-      write(fd,buffer,strlen(buffer));
-    }
-  }while(bytesRead!=0);
-  printf("File received\n");
-  close(fd);
-  free(buffer);
-  return;
-}
+
 int main(int argc, char** argv){
+  if(argc!= 2){
+    printf("Error: Incorrect number of arguments. Only enter port number.\n");
+    return 0;
+  }
   int sockfd=socket(AF_INET,SOCK_STREAM,0);
   if(sockfd<0){
     printf("Socket failed\n");
@@ -205,7 +144,7 @@ int main(int argc, char** argv){
   if(listen(sockfd,5)!=0){
     printf("Listen failed \n");
     close(sockfd);
-    exit(0);
+    return 0;
   } else{
     printf("Listening\n");
   }

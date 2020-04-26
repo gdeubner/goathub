@@ -15,20 +15,84 @@
 #include "network.h"
 #include "fileManip.h"
 
-int readBytesNum(int client){
-  char* buffer = malloc(sizeof(char)*50);
-  memset(buffer,'\0',50);
+#define SA struct sockaddr
+
+int buildClient(){
+  char* IP=malloc(sizeof(char)*2000);
+  char* port=malloc(sizeof(char)*2000);
+  memset(port,'\0',2000);
+  memset(IP,'\0',2000);
+  int configurefd=open(".configure",O_RDONLY);
+  if(configurefd<0){
+    printf("ERROR: No .configure file found\n");
+    close(configurefd);
+    return -1;
+  }
+  char* buffer=malloc(sizeof(char)*2000);
+  memset(buffer,'\0',2000);
+  int totalBytesRead=0;
+  int bytesRead=-2;
+  int bytesToRead=2000;
+  do{
+    bytesRead=0;
+    totalBytesRead=0;
+    while(bytesRead<bytesToRead){
+      bytesRead=read(configurefd,buffer+totalBytesRead,bytesToRead-totalBytesRead);
+      totalBytesRead+=bytesRead;
+      if(bytesRead==0){
+        break;
+      }
+      if(bytesRead<0){
+        printf("Error: Unable to read bytes from .configure\n");
+        free(buffer);
+	close(configurefd);
+        return -1;
+      }
+    }
+  }while(bytesRead!=0);
+  int dlm;
+  for(dlm=0;dlm<strlen(buffer);dlm++){
+    if(buffer[dlm]=='\t'){
+      break;
+    }
+  }
+  strncpy(IP,buffer,dlm);
+  IP[dlm]='\0';
+  dlm++;
+  memset(port,'\0',6);
   int ptr=0;
-  char currentChar;
-  while(currentChar!=':'){
-    read(client,buffer+ptr,1);
-    currentChar=buffer[ptr];
+  while(buffer[dlm]!='\0'){
+    port[ptr]=buffer[dlm];
+    dlm++;
     ptr++;
   }
-  buffer[ptr]='\0';
-  int bytes=atoi(buffer);
   free(buffer);
-  return bytes;
+  close(configurefd);
+
+  int sockfd=socket(AF_INET,SOCK_STREAM,0);
+  if(sockfd<0){
+    printf("Socket failed\n");
+    exit(0);
+  } else {
+    printf("Socket made\n");
+  }
+  struct sockaddr_in servAddr,cliAddr;
+  bzero(&servAddr,sizeof(servAddr));
+  servAddr.sin_family=AF_INET;
+  //local machine ip testing
+  servAddr.sin_addr.s_addr=inet_addr(IP);
+  servAddr.sin_port=htons(atoi(port));
+  if(connect(sockfd,(SA*)&servAddr,sizeof(servAddr))!=0){
+    printf("Server connection failed\n");
+    close(sockfd);
+    exit(0);
+  }else{
+    printf("Connected\n");
+  }
+  free(buffer);
+  free(IP);
+  free(port);
+  return sockfd;
 }
 
 int freeMSG(message *msg){ // assumes all pointers were malloced!

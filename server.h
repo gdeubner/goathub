@@ -2,6 +2,6 @@
 #define SERVER_H
 
 int destroy(char*);
-int createS(int fd);
+int createS(int fd, message *msg);
 
 #endif

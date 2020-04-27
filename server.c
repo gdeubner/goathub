@@ -58,19 +58,16 @@ int destroy(char* path){
   return check;
 }
 
-int createS(int fd){
-  int clientfd = fd; //is this what too use to send to client?
-  wnode *fileLL = NULL;
-  fileLL = scanFile(fd, fileLL, ":");
-  char *projectName = fileLL->next->next->next->next->next->next->str;
-  projectName[strlen(projectName)-1] = '\0';
+int createS(int fd, message *msg){
+  int clientfd = fd; 
+  char *projectName = msg->args[0];
   if(mkdir(projectName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)<0){
     if(errno==EEXIST){
       printf("Error: Project %s already exists. Reporting to client.\n", projectName);
-      message *msg = malloc(sizeof(message));
+      //message *msg = malloc(sizeof(message));
       msg->cmd = "Error";
       msg->numargs = 1;
-      msg->args = malloc(sizeof(char*));
+      //msg->args = malloc(sizeof(char*));
       msg->args[0] = "Error: Project already exists on the server.\0";
       msg->numfiles = 0;
       sendMessage(clientfd, msg);
@@ -93,11 +90,11 @@ int createS(int fd){
     //alert client
     return -1;
   }
-  write(fd, "1\n", 2);
+  write(mfd, "1\n", 2);
   //send client .Manifest file
-  message *msg = malloc(sizeof(message));
   msg->cmd = "fileTransfer";
   msg->numargs = 0;
+  free(msg->args);
   msg->args = NULL;
   msg->numfiles = 1;
   msg->dirs = malloc(sizeof(char)*2);
@@ -110,8 +107,37 @@ int createS(int fd){
   free(msg);
   free(manFile);
   close(mfd);
-  close(clientfd);  // tremporary
+  //close(clientfd);  // tremporary
   return 0;
+}
+
+int interactWithClient(int fd){
+  message *msg = NULL;
+  msg = recieveMessage(fd, msg);
+  printf("message recieved on server\n");
+  if(strcmp(msg->cmd, "checkout")==0){
+    //checkout(fd, msg);
+  }else if(strcmp(msg->cmd, "update")==0){
+    //update(fd, msg);
+  }else if(strcmp(msg->cmd, "upgrade")==0){
+    //upgrade(fd, msg);
+  }else if(strcmp(msg->cmd, "commit")==0){
+    //commit(fd, msg);
+  }else if(strcmp(msg->cmd, "push")==0){
+    //push(fd, msg);
+  }else if(strcmp(msg->cmd, "create")==0){
+    createS(fd, msg);
+  }else if(strcmp(msg->cmd, "destroy")==0){
+    //destray(fd, msg);
+  }else if(strcmp(msg->cmd, "currentversion")==0){
+    //currentversion(fd, msg);
+  }else if(strcmp(msg->cmd, "history")==0){
+    //histroy(fd, msg);
+  }else if(strcmp(msg->cmd, "rollback")==0){
+    //rollback(fd, msg);
+  }else{
+    printf("Unknown argument entered\n");
+  }
 }
 
 int main(int argc, char** argv){
@@ -160,6 +186,7 @@ int main(int argc, char** argv){
       exit(0);
     }else{
       printf("Server accepted the client\n");
+      interactWithClient(clientfd);
     }
   }
   //int bytes=readBytesNum(clientfd);

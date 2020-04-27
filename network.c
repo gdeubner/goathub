@@ -66,7 +66,6 @@ int buildClient(){
     dlm++;
     ptr++;
   }
-  free(buffer);
   close(configurefd);
 
   int sockfd=socket(AF_INET,SOCK_STREAM,0);
@@ -120,105 +119,81 @@ int freeMSG(message *msg){ // assumes all pointers were malloced!
 message *recieveMessage(int fd, message *msg){
   msg = malloc(sizeof(message));
   char d = ':'; // for deliminator
-
-  int bytesToRead = 2000; 
-
-  lseek(fd, 0, SEEK_SET);
-  char *buffer  = NULL;
-  buffer = (char*)malloc(sizeof(char)*(bytesToRead+1));
-  memset(buffer, '\0', (bytesToRead+1));
-  int totalBytesRead = 0; //all bytes read 
-  int bytesRead = 0;  //bytes read in one iteration of read()
-  int sizeOfFile=0;
-  //fills buffer 
-  bytesRead = 0;
-  while(totalBytesRead < bytesToRead){ // makes sure buffer gets filled
-    bytesRead = read(fd, buffer+totalBytesRead, bytesToRead-totalBytesRead);
-    totalBytesRead+=bytesRead;
-    if(bytesRead==0)
-      break;
-    if(bytesRead<0){
-      printf("Fatal Error: Unable to read bytes from message file. Errno: %d\n", errno);
-      exit(0);
-    }
-  }
-  sizeOfFile+=strlen(buffer);
-  //converts buffer into LL
-  int ptr = 0;
-  int prev = 0;
   int i = 0;
-  char * temp = NULL;
-  while(buffer[ptr]!=d){ptr++;} //gets command
-  msg->cmd = malloc(sizeof(char)*(ptr-prev+1));
-  memcpy(msg->cmd, buffer+prev, ptr-prev);
-  msg->cmd[ptr] = '\0';
-  ptr++; prev = ptr;
-    
-  while(buffer[ptr]!=d){ptr++;} //gets # of arguments
-  temp = malloc(sizeof(char)*(ptr-prev+1));
-  memcpy(temp, buffer+prev, ptr-prev);
-  temp[ptr-prev] = '\0';
-  msg->numargs = atoi(temp);
-  free(temp);
-  ptr++; prev = ptr;
-    
-  if(msg->numargs!=0)
-    msg->args = malloc(sizeof(char*)*msg->numargs);
-  for(i=0; i<msg->numargs; i++){  //gets each argument
-    while(buffer[ptr]!=d){ptr++;}
-    temp = malloc(sizeof(char)*(ptr-prev+1));
-    memcpy(temp, buffer+prev, ptr-prev);
-    int len = atoi(temp);
-    free(temp);
-    ptr++; prev = ptr;
-    msg->args[i] = malloc(sizeof(char)*(len+1));
-    ptr+=len;
-    memcpy(msg->args[i], buffer+prev, ptr-prev);
-    msg->args[i][len] = '\0';
-    prev = ptr;
-  }
+  char *buffer = malloc(sizeof(char)*200);
+  memset(buffer, '\0', 200);
+  int count = 0;
+  do{ // fills in cmd
+    read(fd, buffer+count++, 1);
+  }while(buffer[count-1]!=d);
+  msg->cmd = malloc(sizeof(char)*count);
+  memcpy(msg->cmd, buffer, count);
+  msg->cmd[count-1] = '\0';
+  
+  count = 0;
+  do{ // gets number of arguments
+    read(fd, buffer+count++, 1);
+  }while(buffer[count-1]!=d);
+  buffer[count-1] = '\0';
+  msg->numargs = atoi(buffer);
+  msg->args = malloc(sizeof(char*)*(msg->numargs)); // gets argument
 
-  while(buffer[ptr]!=d){ptr++;}  //gets # of files
-  temp = malloc(sizeof(char)*(ptr-prev+1));
-  memcpy(temp, buffer+prev, ptr-prev);
-  temp[ptr-prev] = '\0';
-  msg->numfiles = atoi(temp);
-  free(temp);
-  ptr++; prev = ptr;
+  for(i=0; i<msg->numargs; i++){
+    count = 0;
+    do{ // gets arg length
+      read(fd, buffer+count++, 1);
+    }while(buffer[count-1]!=d);
+    buffer[count-1] = '\0';
+    int size = atoi(buffer);
     
-  if(msg->numfiles!=0){
-    msg->filepaths = malloc(sizeof(char*)*msg->numfiles);
-    msg->dirs = malloc(sizeof(char)*(msg->numfiles));
-    msg->filelens = malloc(sizeof(int)*msg->numfiles);
+    count = 0;
+    int j;
+    for(j = 0; j<size; j++){
+      read(fd, buffer+count++, 1);
+    }
+    
+    msg->args[i] = malloc(sizeof(char)*(size+1));
+    memcpy(msg->args[i], buffer, size);
+    msg->args[i][size] = '\0';
   }
-  for(i=0; i<msg->numfiles; i++){  //gets each file's meta data
-    msg->dirs[i] = buffer[ptr]; // dir of file
-    ptr++;ptr++; prev = ptr;
-    while(buffer[ptr]!=d){ptr++;} //length of file name
-    temp = malloc(sizeof(char)*(ptr-prev+1));
-    memcpy(temp, buffer+prev, ptr-prev);
-    int len = atoi(temp);
-    free(temp);
-    ptr++; prev = ptr;
-    msg->filepaths[i] = malloc(sizeof(char)*(len+1));  // gets file names
-    ptr+=len;
-    memcpy(msg->filepaths[i], buffer+prev, ptr-prev);
-    msg->filepaths[i][len] = '\0';
-    prev = ptr;
-    while(buffer[ptr]!=d){ptr++;}//get file lengths
-    temp = malloc(sizeof(char)*(ptr-prev+1));
-    memcpy(temp, buffer+prev, ptr-prev);
-    msg->filelens[i] = atoi(temp);
-    free(temp);
-    ptr++; prev = ptr;
+  
+  count = 0;
+  do{ // fills numfiles
+    read(fd, buffer+count++, 1);
+  }while(buffer[count-1]!=d);
+  buffer[count-1] = '\0';
+  msg->numfiles = atoi(buffer);
+  
+  msg->dirs = malloc(sizeof(char)*(msg->numfiles+1)); //maybe remove
+  msg->filepaths = malloc(sizeof(char*)*(msg->numfiles));
+  msg->filelens = malloc(sizeof(int)*msg->numfiles);
+  for(i = 0; i<msg->numfiles; i++){
+    read(fd, msg->dirs+i, 1);
+    //read(fd, buffer, 1); //just reads past a pointless delim
+    count = 0;
+    do{ // gets file name length
+      read(fd, buffer+count++, 1);
+    }while(buffer[count-1]!=d);
+    buffer[count-1] = '\0';
+    int size = atoi(buffer);
+  
+    count = 0; 
+    int j; // gets file name
+    for(j = 0; j<size; j++){
+      read(fd, buffer+count++, 1);
+    }
+    msg->filepaths[i] = malloc(sizeof(char)*(size+1));
+    memcpy(msg->filepaths[i], buffer, size);
+    msg->filepaths[i][size] = '\0';
+    
+    count = 0;
+    do{ // gets file name length
+      read(fd, buffer+count++, 1);
+    }while(buffer[count-1]!=d);
+    buffer[count-1] = '\0';
+    msg->filelens[i] = atoi(buffer);
   }
   free(buffer);
-  int offset = 0; //finally, sets fd offset to start of file bytes
-  for(i=0; i<msg->numfiles; i++){
-    if(msg->dirs[i]=='0')
-      offset -= msg->filelens[i];
-  }
-  lseek(fd, offset, SEEK_END);
   return msg;
 }
 

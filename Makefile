@@ -1,19 +1,19 @@
 all: WTF WTFserver
 
 WTF: client.c gStructs.o fileManip.o network.o 
-	gcc client.c gStructs.o fileManip.o network.o -o WTF -lssl -lcrypto
+	gcc -g client.c gStructs.o fileManip.o network.o -o WTF -lssl -lcrypto
 
 WTFserver: server.c gStructs.o fileManip.o network.o
-	gcc server.c gStructs.o fileManip.o network.o -o WTFserver -lssl -lcrypto
+	gcc -g server.c gStructs.o fileManip.o network.o -o WTFserver -lssl -lcrypto
 
 gStructs.o:
-	gcc -c gStructs.c
+	gcc -c -g gStructs.c
 
 network.o:
-	gcc -c network.c
+	gcc -c -g network.c
 
 fileManip.o:
-	gcc -c fileManip.c
+	gcc -c -g fileManip.c
 
 clean:
 	rm WTF; rm WTFserver; rm gStructs.o; rm network.o; rm fileManip.o;

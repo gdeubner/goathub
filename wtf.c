@@ -25,14 +25,6 @@ int main(int argc, char **argv){
   return 0;
 }
 
-//returns 1 if directory child is found in directory parent, 0 if not, -1 on error
-
-
-int checkoutS(char *project){
-  
-  return 0;
-}
-
 int removeF(const char *project, char *file){
   DIR *dirp = opendir(project);
   if(dirp==NULL){

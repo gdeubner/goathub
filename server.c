@@ -17,6 +17,36 @@
 
 #define SA struct sockaddr
 void receiveFile(int,char*);
+int rollback(message*);
+//Deletes current project directory and recent versions assuming compressed projects are of format <project><#>
+int rollback(message* msg){
+  char* project=msg->args[0];
+  int dCheck=destroy(project);
+  if(dCheck!=0){
+    printf("Current project directory still exists and was not deleted");
+    return 0;
+  }
+  int v=atoi(msg->args[1]);//Should house version number
+  char* temp=malloc(sizeof(char)*2000);
+  do{
+    v++;
+    memset(temp,'\0',2000);
+    strcat(temp,project);
+    strcat(temp,"archive/");
+    char* temp2=itoa(temp2,v);
+    strcat(temp,project);
+    strcat(temp,temp2);
+    printf("Version to remove is %s\n",temp2);
+  }while(remove(temp)==0);
+  memset(temp,'\0',2000);
+  strcat(temp,project);
+  strcat(temp,"archive/");
+  strcat(temp,project);
+  strcat(temp,msg->args[1]);
+  decompressProject(project,msg->args[1]);
+  remove(temp);
+  return 1;
+}
 int destroy(char*);
 //Will need to look at again after commit is finished so we can destroy pending commits
 //Recursively removes project directory, files and sub directories, returns 0 on success 

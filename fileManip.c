@@ -451,3 +451,88 @@ void receiveFile(int client,char* name){
   free(buffer);
   return;
 }
+//Will copy directory into temporary folder, compress it, and then move it back out and append the proper version number onto it
+int compressProject(char* project){
+  char* temp=malloc(sizeof(char)*2000);
+  memset(temp,'\0',2000);
+  strcat(temp,project);
+  strcat(temp,"/.manifest");
+  char* buffer=malloc(sizeof(char)*2000);
+  memset(buffer,'\0',2000);
+  int ptr=-1;
+  int fd=open(temp,O_RDONLY);
+  if(fd<0){
+    return 0;//Manifest not found
+  }
+  do{
+    ptr++;
+    int check=read(fd,buffer+ptr,1);
+    if(check==0){
+      return 0;//Shouldn't ever happen
+    }
+  }while(buffer[ptr]!='\n');
+  buffer[ptr]='\0';//holds project version number
+  int folderCheck=atoi(buffer);
+  if(folderCheck==1){
+    char* temp2=malloc(sizeof(char)*2000);
+    memset(temp2,'\0',2000);
+    memcpy(temp2,"mkdir ",6);
+    strcat(temp2,project);
+    strncat(temp2,"archive",7);
+    //printf("Mkdir command is %s\n",temp2);
+    system(temp2);//Creates new archive folder
+    free(temp2);
+  }
+  system("mkdir temp");
+  char* command=malloc(sizeof(char)*2000);
+  memset(command,'\0',2000);
+  char* copy="cp -r ";
+  memcpy(command,copy,strlen(copy));
+  strcat(command,project);
+  strcat(command," temp");
+  //printf("Copy command is %s\n",command);//copies project into new directory
+  system(command);
+  memset(command,'\0',2000);
+  copy="tar cvf ";
+  memset(temp,'\0',2000);
+  strcat(temp,project);
+  strncat(temp,buffer,strlen(buffer));//version appended onto project name
+  memcpy(command,copy,strlen(copy));
+  strcat(command,temp);
+  strcat(command," ");
+  strcat(command,project);//command should now be "tar cvf <project><#> temp/<project>
+  //printf("Tar command is %s\n",command);
+  system(command); //Tar file should be in Current dir now
+  memset(command,'\0',2000);
+  strcat(command,"mv ");
+  strcat(command,project);
+  strncat(command,buffer,strlen(buffer));
+  strcat(command," ");
+  strcat(command,project);
+  strcat(command,"archive");//command should be mv <project><#> <project>archive
+  //printf("Mv command is %s\n",command);
+  system(command);
+  system("rm -r temp");//removes temp directory and files inside
+  free(command);
+  free(temp);
+  return 1;
+}
+//Untars project and moves project into current dir, only call IF project is not in current directory
+int decompressProject(char* project,char* version){
+  char* command=malloc(sizeof(char)*2000);
+  char* projectVer=malloc(sizeof(char)*(strlen(project)+strlen(version)+1));
+  memset(projectVer,'\0',strlen(project)+strlen(version)+1);
+  memcpy(projectVer,project,strlen(project));
+  strcat(projectVer,version);//Holds string of <project><#>
+  memset(command,'\0',2000);
+  char* copy="tar xf ";
+  strcat(command,copy);//tar xf
+  strcat(command,project);
+  strcat(command,"archive/");//tar xf <project>archive/
+  strcat(command,projectVer);//tar xf <project>archive/<project><#>
+  //printf("Untar command is %s\n",command);
+  system(command);
+  free(command);
+  free(projectVer);
+  return 1;
+}

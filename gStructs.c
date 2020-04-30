@@ -106,6 +106,15 @@ void cleanLL(wnode *head){
   }
 }
 
+int lenLL(wnode *head){
+  int count = 0;
+  while(head != NULL){
+    count++;
+    head = head->next;
+  }
+  return count;
+}
+
 void printLL(wnode* head){  //for testing purposes
   wnode* ptr = head;
   while(ptr!=NULL){
@@ -220,4 +229,95 @@ void quickSort(wnode **list, int lo, int hi){
   int splitPoint = split(list, lo, hi);
   quickSort(list, lo, splitPoint-1);
   quickSort(list, splitPoint+1, hi);
+}
+
+
+//will read in all charaters of a file and return a LL of the words and white spases (unordered)
+wnode* scanFile(int fd, wnode* head, char *delims){
+  int bytesToRead = 2000;   
+  lseek(fd, 0, SEEK_SET);
+  char *buffer  = NULL;
+  int mallocCount = 1;
+  while(buffer==NULL&&mallocCount<4){
+    buffer = (char*)malloc(sizeof(char)*(bytesToRead+1));
+    if(buffer==NULL){
+      printf("Error: Unable to malloc. Attempt number: %d Errno: %d\n", mallocCount, errno);
+      mallocCount++;
+    }
+  }
+  if(mallocCount>=4){
+    printf("Fatal Error: Malloc was unsuccessful. Errno: %d\n", errno);
+    return NULL;
+  }
+  memset(buffer, '\0', (bytesToRead+1));
+  int totalBytesRead = 0; //all bytes read 
+  int bytesRead = 0;  //bytes read in one iteration of read()
+  int sizeOfFile=0;
+  do{   //fills buffer 
+    bytesRead = 0;
+    while(totalBytesRead < bytesToRead){ // makes sure buffer gets filled
+      bytesRead = read(fd, buffer+totalBytesRead, bytesToRead-totalBytesRead);
+      totalBytesRead+=bytesRead;
+      if(bytesRead==0)
+	break;
+      if(bytesRead<0){
+	printf("Fatal Error: Unable to read bytes from file. Errno: %d\n", errno);
+       	return NULL;
+      }
+    }
+    sizeOfFile+=strlen(buffer);
+    //converts buffer into LL
+    int ptr = 0;
+    int prev = 0;
+    if(delims==NULL)
+      delims = " /t/n/v.,@";
+    char *token = NULL;
+    wnode *tail = NULL;
+    while(ptr<totalBytesRead){
+      if(strchr(delims, buffer[ptr]) != NULL){
+	if(ptr==prev){ //isolating white space token
+	  token = malloc(sizeof(char)*(2));
+	  token[0] = buffer[ptr];
+	  token[1] = '\0';
+	  prev++;
+	  ptr++;
+	}else{ //isolating word token
+	  token = malloc(sizeof(char)*(ptr-prev+1));
+	  memcpy(token, buffer+prev, ptr-prev);
+	  token[ptr-prev] = '\0';
+	  prev = ptr;
+	}
+	wnode *node = malloc(sizeof(wnode));
+	node->str = token;
+	node->next = NULL;
+	if(head==NULL){
+	  head = node;
+	  tail = node;
+	}else{
+	  tail->next = node;
+	  tail = node;
+	}
+      }else{
+	ptr++;
+      }
+    }
+    //deals with end of buffer issues
+    if(bytesRead==0){ // at end of file and...
+      if(prev!=ptr){ // last token is a word token (not white space)
+	token = malloc(sizeof(char)*(ptr-prev));
+	memcpy(token, buffer+prev, ptr-prev-1);
+	token[ptr-prev] = '\0';
+	head = insertLL(head, token);
+      }
+    }else{ //not at end of file and...
+      memcpy(buffer, buffer+prev, ptr-prev);
+      memset(buffer+ptr-prev, '\0', bytesToRead-ptr+prev);
+      totalBytesRead = ptr-prev;
+    }
+  }while(bytesRead != 0);
+  free(buffer);
+  close(fd);
+  if(sizeOfFile==0)
+    printf("Warning: File is empty\n");
+  return head;
 }

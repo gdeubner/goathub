@@ -9,7 +9,65 @@
 #include "gStructs.h"
 #include "fileManip.h"
 
-//finds the first instance of str in file fd and returns the offset str was found at
+//prints file contents to stdo
+int printFile(char *file){
+  int fd = open(file, O_RDONLY);
+  if(fd<0){
+    printf("Error: [printFile] Unable to open file: %s.\n", file);
+    return -1;
+  }
+  int bytesToRead = 2000;   
+  char *buffer  = NULL;
+  int mallocCount = 1;
+  while(buffer==NULL&&mallocCount<4){
+    buffer = (char*)malloc(sizeof(char)*(bytesToRead+1));
+    if(buffer==NULL){
+      printf("Error: Unable to malloc. Attempt number: %d Errno: %d\n", mallocCount, errno);
+      mallocCount++;
+    }
+  }
+  if(mallocCount>=4){
+    printf("Fatal Error: Malloc was unsuccessful. Errno: %d\n", errno);
+    return -1;
+  }
+  int totalBytesRead = 0; //all bytes read 
+  int bytesRead = 0;  //bytes read in one iteration of read()
+  int sizeOfFile=0;
+  do{   //fills buffer 
+    memset(buffer, '\0', (bytesToRead+1));
+    bytesRead = 0;
+    while(totalBytesRead < bytesToRead){ // makes sure buffer gets filled
+      bytesRead = read(fd, buffer+totalBytesRead, bytesToRead-totalBytesRead);
+      totalBytesRead+=bytesRead;
+      if(bytesRead==0)
+	break;
+      if(bytesRead<0){
+	printf("Fatal Error: Unable to read bytes from file. Errno: %d\n", errno);
+	return -1;
+      }
+    }
+    sizeOfFile+=strlen(buffer);
+    printf(buffer);
+  }while(bytesRead != 0);
+  free(buffer);
+  close(fd);
+ 
+  return 0;
+}
+
+int containsFile(char *project, char *file){
+  DIR * proj = opendir(project);
+  if(proj<0)
+    return -1;
+  char * temp = malloc(sizeof(char)*(strlen(project)+strlen(file)+2));
+  memset(temp, '\0', (strlen(project)+strlen(file)+2));
+  strcat(temp, project);
+  strcat(temp, "/");
+  strcat(temp, file);
+  int fd = open(temp, O_RDWR);
+  closedir(proj);
+  return fd;
+}
 
 int readBytesNum(int client){
   char* buffer = malloc(sizeof(char)*50);
@@ -61,7 +119,7 @@ int findDir(char* parent, char *child){
   }
   return 0;
 }
-
+//returns position of str in file, -1 on error
 int strfile(char *file, char *str){ 
   int fd = open(file, O_RDWR);
   if(fd<0){
@@ -231,100 +289,6 @@ char *itoa(char *snum, int num){
   return snum;
 }
 
-//will read in all charaters of a file and return a LL of the words and white spases (unordered)
-wnode* scanFile(int fd, wnode* head, char *delims){
-  int bytesToRead = 2000;   
-  lseek(fd, 0, SEEK_SET);
-  //int fd = open(fileName, O_RDONLY); 
-  /* if(fd<0){ */
-  /*   printf("Fatal Error: File %s does not exist. Errno: %d\n", fileName, errno); */
-  /*   return NULL; */
-  /* } */
-  char *buffer  = NULL;
-  int mallocCount = 1;
-  while(buffer==NULL&&mallocCount<4){
-    buffer = (char*)malloc(sizeof(char)*(bytesToRead+1));
-    if(buffer==NULL){
-      printf("Error: Unable to malloc. Attempt number: %d Errno: %d\n", mallocCount, errno);
-      mallocCount++;
-    }
-  }
-  if(mallocCount>=4){
-    printf("Fatal Error: Malloc was unsuccessful. Errno: %d\n", errno);
-    exit(0);
-  }
-  memset(buffer, '\0', (bytesToRead+1));
-  int totalBytesRead = 0; //all bytes read 
-  int bytesRead = 0;  //bytes read in one iteration of read()
-  int sizeOfFile=0;
-  do{   //fills buffer 
-    bytesRead = 0;
-    while(totalBytesRead < bytesToRead){ // makes sure buffer gets filled
-      bytesRead = read(fd, buffer+totalBytesRead, bytesToRead-totalBytesRead);
-      totalBytesRead+=bytesRead;
-      if(bytesRead==0)
-	break;
-      if(bytesRead<0){
-	printf("Fatal Error: Unable to read bytes from file. Errno: %d\n", errno);
-       	exit(0);
-      }
-    }
-    sizeOfFile+=strlen(buffer);
-    //converts buffer into LL
-    int ptr = 0;
-    int prev = 0;
-    if(delims==NULL)
-      delims = " /t/n/v.,@";
-    char *token = NULL;
-    wnode *tail = NULL;
-    while(ptr<totalBytesRead){
-      if(strchr(delims, buffer[ptr]) != NULL){
-	if(ptr==prev){ //isolating white space token
-	  token = malloc(sizeof(char)*(2));
-	  token[0] = buffer[ptr];
-	  token[1] = '\0';
-	  prev++;
-	  ptr++;
-	}else{ //isolating word token
-	  token = malloc(sizeof(char)*(ptr-prev+1));
-	  memcpy(token, buffer+prev, ptr-prev);
-	  token[ptr-prev] = '\0';
-	  prev = ptr;
-	}
-	wnode *node = malloc(sizeof(wnode));
-	node->str = token;
-	node->next = NULL;
-	if(head==NULL){
-	  head = node;
-	  tail = node;
-	}else{
-	  tail->next = node;
-	  tail = node;
-	}
-      }else{
-	ptr++;
-      }
-    }
-    //deals with end of buffer issues
-    if(bytesRead==0){ // at end of file and...
-      if(prev!=ptr){ // last token is a word token (not white space)
-	token = malloc(sizeof(char)*(ptr-prev));
-	memcpy(token, buffer+prev, ptr-prev-1);
-	token[ptr-prev] = '\0';
-	head = insertLL(head, token);
-      }
-    }else{ //not at end of file and...
-      memcpy(buffer, buffer+prev, ptr-prev);
-      memset(buffer+ptr-prev, '\0', bytesToRead-ptr+prev);
-      totalBytesRead = ptr-prev;
-    }
-  }while(bytesRead != 0);
-  free(buffer);
-  close(fd);
-  if(sizeOfFile==0)
-    printf("Warning: File is empty\n");
-  return head;
-}
 
 void sendFile(int client,char* name){
   int fd=open(name,O_RDONLY);

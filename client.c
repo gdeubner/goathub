@@ -50,20 +50,54 @@ void printManifest(char* str){
   free(temp);
   return;
 }
-int checkoutC(char *project){
-  if(findDir(".", project)>0){
-    printf("Warning: Project %s already exists locally.\n", project);
-    //int configfd = findFile(".", ".config")
-    int configfd = open("./.Configure", O_RDONLY);
-    if(configfd < 0){
-      printf("Error: No .Configure file found.\n");
-    }
-    
-
+int checkoutC(char *projectName){
+  if(findDir(".", projectName)>0){
+    printf("Error: Project %s already exists locally.\n", projectName);
     return -1;
   }
-  // now read the cogfig file to set up the conection with the server  
-  //check if project is on server
+  int serverfd = buildClient();
+  if(serverfd<0)
+    return -1;
+  message *msg = malloc(sizeof(message));
+  msg->cmd = "checkout";
+  msg->numargs = 1;
+  msg->args = malloc(sizeof(char*));
+  msg->args[0] = projectName;
+  msg->numfiles = 0;
+  sendMessage(serverfd, msg);
+  free(msg->args);
+  free(msg);
+  
+  msg = recieveMessage(serverfd, msg);
+  if(strcmp(msg->cmd, "error")==0){
+    printf(msg->args[0]);
+    freeMSG(msg);
+    return -1;
+  }
+  int i = 0;
+  for(i = 0; i<msg->numfiles; i++){
+    if(msg->dirs[i]==1)
+      continue;
+    char *temp = malloc(sizeof(char)*(strlen(msg->filepaths[i])+1));
+    strcpy(temp, msg->filepaths[i]);
+    char *prev = strtok(temp, "/"); //  bypasses the first char '.'
+    prev = strtok(NULL, "/");
+    char *ptr = strtok(NULL, "/");
+    do{
+      mkdir(prev, S_IRWXU|S_IRWXG);
+      prev = ptr; 
+      ptr = strtok(NULL, "/"); 
+    }while(ptr!=NULL);
+    int fd = open(msg->filepaths[i], O_RDWR|O_CREAT, 00600);
+    if(fd<0){
+      printf("Error: unable to open file: %s\n", msg->filepaths[i]);
+      return -1;
+    }
+    copyNFile(fd, serverfd, msg->filelens[i]);
+    close(fd);
+  }
+  close(serverfd);
+  printf("Checked out %s from server.\n", projectName);
   return 0;
 }
 
@@ -73,6 +107,7 @@ int removeF(const char *project, char *file){
     printf("Fatal Error: Project directory %s cannot be opened\n", project);
     return -1;
   }
+  closedir(dirp);
   char *manPath = malloc(sizeof(char)*(strlen(project)+13));
   memset(manPath, '\0', strlen(project)+13);
   strcat(manPath, "./");
@@ -148,30 +183,46 @@ int removeF(const char *project, char *file){
   return 0;
 }
 
-int add(const char *project, char *file){
+int add(char *project, char *file){
   DIR *dirp = opendir(project);
   if(dirp==NULL){
     printf("Error: Project directory %s cannot be opened\n", project);
     return -1;
   }
+  closedir(dirp);
   char *manPath = malloc(sizeof(char)*(strlen(project)+13));
   memset(manPath, '\0', strlen(project)+13);
   strcat(manPath, "./");
   strcat(manPath, project);
   strcat(manPath, "/.Manifest");
   if(strfile(manPath, file)>=0){
+    free(manPath);
     printf("Warning: File %s already exists in the .Manifest and cannot be added again.\n", file);
     return -1;
   }
-  int man = open(manPath, O_RDWR);
-  if(man<0){
-    printf("Error: Unable to find the %s/.Manifest file.\n", project);
+  char *path = malloc(sizeof(char)*(strlen(project)+strlen(file)+2));
+  memset(path, '\0', (strlen(project)+strlen(file)+2));
+  strcat(path, project);
+  strcat(path, "/");
+  strcat(path, file);
+  int fd = open(path, O_RDWR);
+  if(fd<0){
+    printf("Error: Unable to find file %s in %s.\n", file, project);
+    free(path);
+    free(manPath);
     return -1;
   }
+  close(fd);
+  int man = open(manPath, O_RDWR);
   free(manPath);
+  if(man<0){
+    printf("Error: Unable to find the %s/.Manifest file.\n", project);
+    free(path);
+    return -1;
+  }
   lseek(man,0, SEEK_END);  
   char *hash = NULL;
-  hash = hashFile(file, hash);
+  hash = hashFile(path, hash);
   if(hash==NULL){
     printf("Error: Invalid file path. Unable to add file %s\n", file);
     return -1;
@@ -179,14 +230,13 @@ int add(const char *project, char *file){
   char *buffer = malloc(sizeof(char)*(strlen(project)+strlen(file)+48));
   memset(buffer, '\0', strlen(project)+strlen(file)+48);
   strcat(buffer, "1 ./");
-  strcat(buffer, project);
-  strcat(buffer, "/");
-  strcat(buffer, file);
+  strcat(buffer, path);
   strcat(buffer, " ");
   strcat(buffer, hash);
   strcat(buffer, "\n");
   write(man, buffer, strlen(buffer));
   free(buffer);
+  free(path);
   free(hash);
   close(man);
   printf("Added %s to %s\n", file, project);
@@ -285,7 +335,6 @@ int configure(char* IP,char* port){
 }
 
 int main(int argc, char** argv){
-  
   /* int fd = open("test.txt",O_RDWR|O_CREAT,00600); */
   /* message *msg = malloc(sizeof(message)); */
   /* msg->cmd = "command"; */
@@ -325,7 +374,7 @@ int main(int argc, char** argv){
   if(strcmp(argv[1], "configure")==0){
     configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "checkout")==0){
-    //checkout(argv[2]);
+    checkoutC(argv[2]);
   }else if(strcmp(argv[1], "update")==0){
     //configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "upgrade")==0){
@@ -349,7 +398,7 @@ int main(int argc, char** argv){
   }else if(strcmp(argv[1], "rollback")==0){
     //configure(argv[2], argv[3]);
   }else{
-    printf("Unknown argument entered\n");
+    printf("Error: Unknown argument entered\n");
   }
 
   //int sockfd=buildClient();//Call this function whenever you want an fd that connects to server

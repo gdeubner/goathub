@@ -17,6 +17,25 @@ typedef struct TNODE{
   struct TNODE *right;
 }tnode;
 
+void printBST(tnode *root);
+wnode *BSTtoLL(tnode *root, wnode *head);
+void cleanBST(tnode *root);
+tnode *makeTnode(char* str);
+wnode *insertLL(wnode *head, char *str);
+int getLLSize(wnode *head);
+void cleanLL(wnode *head);
+int lenLL(wnode *head);
+void printLL(wnode* head);
+int cmpStrs(void* TOKENA, void* TOKENB);
+wnode *freeShit(wnode *ptr, wnode *prev);
+wnode* scanFile(int fd, wnode* head, char *delims);
+//for quicksort
+int split(wnode** list, int lo, int hi);
+void quickSort(wnode **list, int lo, int hi);
+
+
+
+
 wnode *insertLL(wnode *head, char *str);
 wnode* scanFile(int fd, wnode* head, char *delims);
 

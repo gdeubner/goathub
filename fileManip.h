@@ -1,6 +1,8 @@
 #ifndef FILEMANIP_H
 #define FILEMANIP_H
 
+
+int containsFile(char *project, char *file);
 int readBytesNum(int client);
 int findFile(char* parent, char *child);
 int findDir(char* parent, char *child);
@@ -12,5 +14,6 @@ char *readNFile(int fd, int n, char *buffer);
 char* receiveFileName(int);
 void sendFile(int,char*);
 void receiveFile(int client,char* name);
+
 
 #endif

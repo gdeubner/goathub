@@ -48,6 +48,71 @@ int rollback(message* msg){
   return 1;
 }
 int destroy(char*);
+
+
+int checkout(int client, message *msg){
+  DIR *proj = opendir(msg->args[0]); // attempts to open project name
+  if(proj==NULL){ // sends error to client if project doesn't exist
+    printf("Warning: client requested nonexistent project. Sent error message.\n");
+    free(msg->cmd);
+    msg->cmd = "error";
+    msg->numargs = 1;
+    free(msg->args[0]);
+    msg->args[0] = "Error: project does not exist on server.\n";
+    msg->numfiles = 0;
+    sendMessage(client, msg);
+    free(msg->args);
+    free(msg);
+    return -1;
+  }
+  closedir(proj);
+  char *project = malloc(sizeof(char)*strlen(msg->args[0]+1));
+  strcpy(project, msg->args[0]);
+  //freeMSG(msg);
+  msg->cmd = "sending project";
+  msg->numargs = 0;
+  //finds number of files to send (by reading .Manifest)
+  char *man = malloc(sizeof(char)*(strlen(msg->args[0])+13));
+  memset(man, '\0', (strlen(msg->args[0])+13));
+  strcat(man, "./");
+  strcat(man, msg->args[0]);
+  strcat(man, "/.Manifest");
+  int mfd = open(man, O_RDONLY);
+  wnode *head = NULL;
+  wnode *prev = NULL;
+  head = scanFile(mfd, head, " \n");
+  close(mfd);
+  int size = lenLL(head);
+  size = (((size-2)/6)+1);
+  msg->numfiles = size;
+  msg->dirs = malloc(sizeof(char)*(size));
+  msg->dirs[size] = '\0';
+  msg->dirs[0] = '0';
+  msg->filepaths = malloc(sizeof(char*)*(size));
+  msg->filepaths[0] = man;
+  prev = head; head = head->next; free(prev->str);free(prev);
+  prev = head; head = head->next; free(prev->str);free(prev);
+  int count = 1;
+  while(head!=NULL){
+    prev = head; head = head->next; free(prev->str);free(prev);
+    prev = head; head = head->next; free(prev->str);free(prev);
+    msg->dirs[count] = '0';
+    msg->filepaths[count] = head->str;
+    prev = head; head = head->next; free(prev);
+    prev = head; head = head->next; free(prev->str);free(prev);
+    prev = head; head = head->next; free(prev->str);free(prev);
+    prev = head; head = head->next; free(prev->str);free(prev);
+    count++;
+  }
+  sendMessage(client, msg);
+  printf("Sent client project: %s\n", project);
+  free(man);
+  free(msg->dirs);
+  free(msg->filepaths);
+  free(project);
+  return 1;
+}
+
 //Will need to look at again after commit is finished so we can destroy pending commits
 //Recursively removes project directory, files and sub directories, returns 0 on success 
 int destroy(char* path){
@@ -146,7 +211,7 @@ int interactWithClient(int fd){
   msg = recieveMessage(fd, msg);
   printf("message recieved on server\n");
   if(strcmp(msg->cmd, "checkout")==0){
-    //checkout(fd, msg);
+    checkout(fd, msg);
   }else if(strcmp(msg->cmd, "update")==0){
     //update(fd, msg);
   }else if(strcmp(msg->cmd, "upgrade")==0){

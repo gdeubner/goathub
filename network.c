@@ -24,7 +24,7 @@ int buildClient(){
   memset(IP,'\0',2000);
   int configurefd=open(".configure",O_RDONLY);
   if(configurefd<0){
-    printf("ERROR: No .configure file found\n");
+    printf("ERROR: No .configure file found. Please run configure.\n");
     close(configurefd);
     return -1;
   }
@@ -84,7 +84,7 @@ int buildClient(){
   if(connect(sockfd,(SA*)&servAddr,sizeof(servAddr))!=0){
     printf("Server connection failed\n");
     close(sockfd);
-    exit(0);
+    return -1;
   }else{
     printf("Connected\n");
   }
@@ -263,6 +263,10 @@ char *hashFile(char *fileName, char* myhash){
   //creates hash
   int bytesToRead = 2000;   
   int fd = open(fileName, O_RDONLY);
+  if(fd<0){
+    printf("Error: Invalid file path. Unable to create hash.\n");
+    return NULL;
+  }
   char *buffer  = NULL;
   buffer = (char*)malloc(sizeof(char)*(bytesToRead+1));
   int totalBytesRead = 0; //all bytes read 
@@ -278,7 +282,7 @@ char *hashFile(char *fileName, char* myhash){
 	break;
     }
     SHA1_Update(&context, buffer, strlen(buffer));
-  }while(bytesRead != 0);
+  }while(bytesRead > 0);
   free(buffer);
   close(fd);
   SHA1_Final(md, &context);

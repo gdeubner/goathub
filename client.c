@@ -13,6 +13,39 @@
 #include "client.h"
 
 message* buildMessage(char**,int,int);
+int rollbackC(char*,char*);
+int rollbackC(char* project,char* version){
+  int serverfd=buildClient();
+  if(serverfd<0){
+    printf("ERROR:Unable to connect to server\n");
+    close(serverfd);
+    return 0;
+  }
+  message* msg=malloc(sizeof(message));
+  msg->cmd="rollback";
+  msg->numargs=2;
+  msg->args=malloc(sizeof(char*)*2);
+  msg->args[0]=project;
+  msg->args[1]=version;
+  msg->numfiles=0;
+  sendMessage(serverfd,msg);
+  free(msg->args);
+  free(msg);
+  char*buffer=malloc(sizeof(char));
+  read(serverfd,buffer,1);
+  int check=atoi(buffer);
+  if(check==0){
+    printf("Project was not found\n");
+    return 1;
+  }else if(check==1){
+    return 1;
+  }else if(check==2){
+    printf("Invalid version number to be rolled back to\n");
+    return 1;
+  }
+  printf("%s rolled back to %s\n",project,version);
+  return 1;
+}
 void printManifest(char*);
 void printManifest(char* str){
   char* temp=malloc(sizeof(char)*2000);
@@ -34,7 +67,8 @@ void printManifest(char* str){
       ptr++;
       i++;
     }
-    int fileVer=atoi(temp);
+    //int fileVer=atoi(temp);
+    printf("File is: %s ",temp);
     ptr++;
     i=0;
     memset(temp,'\0',2000);
@@ -43,12 +77,39 @@ void printManifest(char* str){
       ptr++;
       i++;
     }
-    printf("File is: %s, and its version is: %d\n",temp,fileVer);
+    int fileVer=atoi(temp);
+    ptr++;
+    printf("and its version is: %d\n",fileVer);
     ptr+=5;//4 byte test hash plus new line
     //ptr+=41;//40 bytes file hash and new line char
   }
   free(temp);
   return;
+}
+int currentVersionC(char*);
+int currentVersionC(char* project){
+  int serverfd=buildClient();
+  if(serverfd<0){
+    printf("Error: Cannot connect to server");
+    return 0;
+  }
+  message* msg=malloc(sizeof(message));
+  msg->cmd="currentversion";
+  msg->numargs=1;
+  msg->args=malloc(sizeof(char*));
+  msg->args[0]=project;
+  msg->numfiles=0;
+  sendMessage(serverfd,msg);
+  free(msg->args);
+  free(msg);
+  int len=readBytesNum(serverfd);
+  printf("%d\n",len);
+  char* temp=malloc(sizeof(char)*(len+1));
+  memset(temp,'\0',len+1);
+  read(serverfd,temp,len);
+  printManifest(temp);
+  free(temp);
+  return 1;
 }
 int checkoutC(char *projectName){
   if(findDir(".", projectName)>0){
@@ -366,9 +427,8 @@ int main(int argc, char** argv){
   /* copyFile(fdend, fd); */
   
   /* return 0; */
-
-  if(argc<1||argc>4){
-    printf("Error: Incorrect number of arguments");
+  if(argc<2||argc>4){
+    printf("Error: Incorrect number of arguments\n");
     return 0;
   }
   if(strcmp(argv[1], "configure")==0){
@@ -392,11 +452,15 @@ int main(int argc, char** argv){
   }else if(strcmp(argv[1], "remove")==0){
     removeF(argv[2], argv[3]);
   }else if(strcmp(argv[1], "currentversion")==0){
-    //configure(argv[2], argv[3]);
+    currentVersionC(argv[2]);
   }else if(strcmp(argv[1], "history")==0){
     //configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "rollback")==0){
-    //configure(argv[2], argv[3]);
+    if(argc!=4){
+      printf("Error not enough arguments\n");
+      return 0;
+    }
+    rollbackC(argv[2],argv[3]);
   }else{
     printf("Error: Unknown argument entered\n");
   }

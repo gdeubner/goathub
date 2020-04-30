@@ -17,16 +17,84 @@
 
 #define SA struct sockaddr
 void receiveFile(int,char*);
-int rollback(message*);
-//Deletes current project directory and recent versions assuming compressed projects are of format <project><#>
-int rollback(message* msg){
-  char* project=msg->args[0];
-  int dCheck=destroy(project);
-  if(dCheck!=0){
-    printf("Current project directory still exists and was not deleted");
+int currentVersion(int,message*);
+//Sends manifest file of project over
+int currentVersion(int client,message* msg){
+  /*int fd=open(".manifest",O_RDONLY);
+  if(fd<0){
+    printf("Manifest not found");
     return 0;
   }
-  int v=atoi(msg->args[1]);//Should house version number
+  char* buffer=malloc(sizeof(char)*2000);
+  return 1;*/
+  char* temp=malloc(sizeof(char)*2000);
+  memset(temp,'\0',2000);
+  memcpy(temp,msg->args[0],strlen(msg->args[0]));
+  strcat(temp,"/.manifest");
+  /*if(sendFile(client,temp)){
+    //free(temp);
+    return 1;
+  } else{
+    //free(temp);
+    return 0;
+  }*/
+  sendFile(client,temp);
+  free(msg->cmd);
+  free(msg->args[0]);
+  free(msg->args);
+  free(msg);
+  free(temp);
+  return 1;
+}
+int rollback(int,message*);
+//Deletes current project directory and recent versions assuming compressed projects are of format <project><#> returns 1 on success, 0 not found, and 2 if version number is not valid
+int rollback(int client,message* msg){
+  char* project=msg->args[0];
+  int v=atoi(msg->args[1]);//Should house version number wanted
+  char* vcheck=malloc(sizeof(char)*2000);
+  memset(vcheck,'\0',2000);
+  strcat(vcheck,msg->args[0]);
+  strcat(vcheck,"/.manifest");
+  int fd=open(vcheck,O_RDONLY);
+  if(fd<0){
+    free(msg->cmd);
+    free(msg->args[0]);
+    free(msg->args);
+    free(msg);
+    free(vcheck);
+    printf("Project not found\n");
+    write(client,"0",1);
+    return 0;
+  }
+  memset(vcheck,'\0',2000);
+  int ptr=-1;
+  int c=-1;
+  do{
+    ptr++;
+    c=read(fd,vcheck+ptr,1);
+  }while((vcheck[ptr]!='\n')&&(c!=0));
+  vcheck[ptr]='\0';
+  if(atoi(vcheck)<=v){
+    free(msg->cmd);
+    free(msg->args[0]);
+    free(msg->args);
+    free(msg);
+    free(vcheck);
+    printf("Invalid version to be rolled back to\n");
+    write(client,"2",1);
+    return 2;
+  }
+  /*int dCheck=destroy(project);
+  if(dCheck!=1){
+    free(msg->cmd);
+    free(msg->args[0]);
+    free(msg->args);
+    free(msg);
+    free(vcheck);
+    printf("Project not found\n");
+    write(client,"0",1);
+    return 0;
+    }*/
   char* temp=malloc(sizeof(char)*2000);
   do{
     v++;
@@ -45,6 +113,12 @@ int rollback(message* msg){
   strcat(temp,msg->args[1]);
   decompressProject(project,msg->args[1]);
   remove(temp);
+  free(temp);
+  free(msg->cmd);
+  free(msg->args[0]);
+  free(msg->args);
+  free(msg);
+  write(client,"1",1);
   return 1;
 }
 int destroy(char*);
@@ -225,11 +299,11 @@ int interactWithClient(int fd){
   }else if(strcmp(msg->cmd, "destroy")==0){
     //destray(fd, msg);
   }else if(strcmp(msg->cmd, "currentversion")==0){
-    //currentversion(fd, msg);
+    currentVersion(fd, msg);
   }else if(strcmp(msg->cmd, "history")==0){
     //histroy(fd, msg);
   }else if(strcmp(msg->cmd, "rollback")==0){
-    //rollback(fd, msg);
+    rollback(fd, msg);
   }else{
     printf("Unknown argument entered\n");
   }

@@ -290,29 +290,29 @@ char *itoa(char *snum, int num){
 }
 
 
-void sendFile(int client,char* name){
+int sendFile(int client,char* name){
   int fd=open(name,O_RDONLY);
   if(fd<0){
     printf("File does not exist");
     char* msg="File does not exist";
     //send(client,msg,strlen(msg));
     close(fd);
-    return;
+    return 0;
   }
-  char* buffer=malloc(sizeof(char)*2000);
-  char* fileContent=malloc(sizeof(char)*2000);
-  memset(fileContent,'\0',2000);
+  char* buffer=malloc(sizeof(char)*2000+1);
+  char* fileContent=malloc(sizeof(char)*2000+1);
+  memset(fileContent,'\0',2000+1);
   int totalBytesRead=0;
   int bytesRead=-2;
   int bytesToRead=2000;
   int i=1;
   printf("Sending file: %s\n",name);
   do{
-    memset(buffer,'\0',bytesToRead);
+    memset(buffer,'\0',2000+1);
     bytesRead=0;
     //totalBytesRead=0;
     while(bytesRead<=bytesToRead){
-      bytesRead=read(fd,buffer+totalBytesRead,bytesToRead);
+      bytesRead=read(fd,buffer,bytesToRead);
       totalBytesRead+=bytesRead;
       if(bytesRead==0){
 	break;
@@ -324,8 +324,8 @@ void sendFile(int client,char* name){
       }
       if(totalBytesRead>=2000*i){
       i++;
-      char* new=malloc(sizeof(char)*(2000*i));
-      memset(new,'\0',2000*i);
+      char* new=malloc(sizeof(char)*((2000*i)+1));
+      memset(new,'\0',2000*i+1);
       memcpy(new,fileContent,strlen(fileContent));
       char* old=fileContent;
       fileContent=new;
@@ -334,6 +334,8 @@ void sendFile(int client,char* name){
       strcat(fileContent,buffer);
     }
   }while(bytesRead!=0);
+  close(fd);
+  free(buffer);
   int fileSize=strlen(fileContent);
   int count;
   char* prefix;
@@ -347,21 +349,28 @@ void sendFile(int client,char* name){
       count++;
     }
     prefix=malloc(sizeof(char)*count+1);
-    prefix[count]='\0';
     sprintf(prefix,"%i",strlen(fileContent));
+    prefix[count]='\0';
   }
   //prefix=itoa(prefix,fileSize);
-  printf("%d\n",fileSize);
   printf("%s\n",prefix);
-  char* toSend=malloc(sizeof(char)*(fileSize+strlen(prefix)+1));
-  memset(toSend,'\0',(fileSize+strlen(prefix)+1));
-  strcat(toSend,prefix);
+  /*char* toSend=malloc(sizeof(char)*(fileSize+strlen(prefix)+2));
+  memset(toSend,'\0',(fileSize+strlen(prefix)+2));
+  memcpy(toSend,prefix,strlen(prefix));
   strcat(toSend,":");
-  strcat(toSend,fileContent);
-  write(client,toSend,strlen(toSend));
+  strcat(toSend,fileContent);*/
+  write(client,prefix,strlen(prefix));
+  write(client,":",1);
+  write(client,fileContent,strlen(fileContent));
+  //free(toSend);
   //sendAll(client,fileContent,strlen(fileContent));
-  printf("File content is: \n %s \n",toSend);
-  printf("File Sent: %s\n",name);
+  //printf("File content is: \n %s \n",toSend);
+  //printf("File Sent: %s\n",name);
+  free(prefix);
+  //free(buffer);
+  //free(toSend);
+  free(fileContent);
+  return 1;
 }
 char* receiveFileName(int client){
   char* temp=malloc(sizeof(char)*2000);

@@ -18,7 +18,7 @@ wnode *BSTtoLL(tnode *root, wnode *head){
   head = BSTtoLL(root->right, head);  
   wnode *node = malloc(sizeof(wnode));
   node->str = root->str;
-  node->freq = root->freq;
+  node->num = root->freq;
   node->next = head;
   head = node;
   head = BSTtoLL(root->left, head);
@@ -118,7 +118,7 @@ int lenLL(wnode *head){
 void printLL(wnode* head){  //for testing purposes
   wnode* ptr = head;
   while(ptr!=NULL){
-    printf("[%s]:%d\n", ptr->str, ptr->freq);
+    printf("[%s]:%d:[%s]\n", ptr->str, ptr->num, ptr->byte);
     ptr = ptr->next;
   }
   printf("/////////////\n");
@@ -196,14 +196,14 @@ int split(wnode** list, int lo, int hi){
   wnode* pivot = list[lo]; 
   while(1){
     while(left<=right){
-      if(list[left]->freq < pivot->freq){
+      if(list[left]->num < pivot->num){
 	left++;
       }else{
 	break;
       }
     }
     while(right > left){
-      if(list[right]->freq < pivot->freq){
+      if(list[right]->num < pivot->num){
 	break;
       }else{
 	right--;
@@ -290,11 +290,12 @@ wnode* scanFile(int fd, wnode* head, char *delims){
 	wnode *node = malloc(sizeof(wnode));
 	node->str = token;
 	node->next = NULL;
-	if(head==NULL){
+	node->num = 0;
+	if(tail==NULL){
 	  head = node;
 	  tail = node;
 	}else{
-	  tail->next = node;
+	  tail->next = node;/////
 	  tail = node;
 	}
       }else{
@@ -320,4 +321,52 @@ wnode* scanFile(int fd, wnode* head, char *delims){
   if(sizeOfFile==0)
     printf("Warning: File is empty\n");
   return head;
+}
+
+wnode *condenseLL(wnode *head){
+  wnode *tail = NULL;
+  wnode *ptr = head->next;
+  wnode *prev = head;
+  free(prev->str); free(prev); // frees .man version chars 
+  prev = ptr; ptr = ptr->next; free(prev->str); free(prev);
+  head = NULL;
+  while(ptr!=NULL){
+    wnode *node = malloc(sizeof(wnode));
+    node->num = atoi(ptr->str);
+    prev = ptr; ptr = ptr->next; free(prev->str); free(prev);
+    prev = ptr; ptr = ptr->next; free(prev->str); free(prev);
+    node->str = ptr->str;
+    prev = ptr; ptr = ptr->next; free(prev);
+    prev = ptr; ptr = ptr->next; free(prev->str); free(prev);
+    node->byte = ptr->str;
+    prev = ptr; ptr = ptr->next; free(prev);
+    prev = ptr; ptr = ptr->next; free(prev->str); free(prev);
+    node->next = NULL;
+    if(head == NULL){
+      head = node;
+      tail=node;
+    }else{
+      tail->next = node;
+      tail = node;
+    }
+  }
+  return head;
+}
+
+wnode *removeNodeLL(wnode *prev){
+  wnode *temp = prev->next;
+  wnode *ptr = prev->next->next;
+  free(temp->str);
+  free(temp->byte);
+  free(temp);
+  return ptr;
+}
+
+wnode *removeFirstNodeLL(wnode *ptr){
+  wnode *temp = ptr;
+  ptr = ptr->next;
+  free(temp->str);
+  free(temp->byte);
+  free(temp);
+  return ptr;
 }

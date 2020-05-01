@@ -12,7 +12,7 @@ int copyFile(int ffd, int ifd);
 char *itoa(char *snum, int num);
 char *readNFile(int fd, int n, char *buffer);
 char* receiveFileName(int);
-void sendFile(int,char*);
+int sendFile(int client,char* name);
 void receiveFile(int client,char* name);
 
 

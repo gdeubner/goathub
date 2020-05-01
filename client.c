@@ -98,12 +98,10 @@ int update(char* projectName){
     wnode *cprev = NULL;
     while(cptr!=NULL){ // looks for each server manifest entry in the client's man
       if(strcmp(sptr->str, cptr->str)!=0){//move to next file in client .Manifest
-	printf("next client entry\n");
 	cprev = cptr;
 	cptr = cptr->next;
       }else{//found file in client manifest
 	if(sptr->num == cptr->num && strcmp(sptr->byte, cptr->byte)==0){ //hashes match
-	  printf("entries match: %s\n", sptr->str);
 	  if(cprev==NULL){ //first entry
 	    cptr = removeFirstNodeLL(cptr);
 	    clihead = cptr;
@@ -112,7 +110,6 @@ int update(char* projectName){
 	    cptr = cprev->next;
 	  }
 	}else{//hashes don't match
-	  printf("Entries don't match\n");
 	  //hash the file and compare it to client's hash
 	  char *livehash = NULL;
 	  livehash = hashFile(cptr->str, livehash);
@@ -143,6 +140,7 @@ int update(char* projectName){
 	      cptr = cprev->next;
 	    }
 	  }
+	  free(livehash);
 	}//// end else (hashes dont match)
 	//remove server entry and set removed
 	if(sprev==NULL){ //first entry

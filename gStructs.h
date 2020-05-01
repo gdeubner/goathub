@@ -2,11 +2,11 @@
 #define GSTRUCTS_H
 
 typedef struct WNODE{
-  int freq;
+  int num;
+  int fragment;
   char *str;
   char *byte;
   struct WNODE *next;
-  int fragment;
 } wnode;
 
 typedef struct TNODE{
@@ -33,11 +33,11 @@ wnode* scanFile(int fd, wnode* head, char *delims);
 int split(wnode** list, int lo, int hi);
 void quickSort(wnode **list, int lo, int hi);
 
-
-
+wnode *condenseLL(wnode *head);
+wnode *removeNodeLL(wnode *prev);
+wnode *removeFirstNodeLL(wnode *ptr);
 
 wnode *insertLL(wnode *head, char *str);
-wnode* scanFile(int fd, wnode* head, char *delims);
 
 
 /* typedef struct _node{ */

@@ -9,6 +9,20 @@
 #include "gStructs.h"
 #include "fileManip.h"
 
+int writeCode(int fd, char c, char *path, char *hash){
+  char *entry = malloc(sizeof(char)*700);
+  memset(entry, '\0', 700);
+  entry[0] = c;
+  entry[1] = ' ';
+  strcat(entry, path);
+  printf("%s\n", entry);
+  strcat(entry, " ");
+  strcat(entry, hash);
+  strcat(entry, "\n");
+  write(fd, entry, strlen(entry)); // fix later
+  return 0;
+}
+
 //prints file contents to stdo
 int printFile(char *file){
   int fd = open(file, O_RDONLY);

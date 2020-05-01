@@ -16,6 +16,44 @@
 #include "server.h"
 
 #define SA struct sockaddr
+
+
+int updateS(int client, message *msg){
+  DIR *proj = opendir(msg->args[0]); // attempts to open project name
+  if(proj==NULL){ // sends error to client if project doesn't exist
+    printf("Warning: client requested nonexistent project. Sent error message.\n");
+    free(msg->cmd);
+    msg->cmd = "error";
+    msg->numargs = 1;
+    free(msg->args[0]);
+    msg->args[0] = "Error: project does not exist on server.\n";
+    msg->numfiles = 0;
+    sendMessage(client, msg);
+    free(msg->args);
+    free(msg);
+    return -1;
+  }
+  printf("Sent client the .Manifest for %s\n", msg->args[0]);
+  //freeMSG(msg);
+  msg->cmd = "send .Manifest";
+  msg->numargs = 0;
+  msg->numfiles = 1;
+  msg->filepaths = malloc(sizeof(char*));
+  char* man=malloc(sizeof(char)*500);
+  memset(man,'\0',500);
+  memcpy(man,msg->args[0],strlen(msg->args[0]));
+  strcat(man,"/.Manifest");
+  msg->filepaths[0] = man;
+  msg->dirs = "0";
+  sendMessage(client,msg);
+  free(man);
+  free(msg->filepaths);
+  free(msg->args[0]);
+  free(msg->args);
+  free(msg);
+  return 0;
+}
+
 void receiveFile(int,char*);
 int history(int,message*);
 int history(int client,message* msg){
@@ -46,7 +84,7 @@ int currentVersion(int client,message* msg){
   free(temp);
   return 1;
 }
-int rollback(int,message*);
+
 //Deletes current project directory and recent versions assuming compressed projects are of format <project><#> returns 1 on success, 0 not found, and 2 if version number is not valid
 int rollback(int client,message* msg){
   char* project=msg->args[0];
@@ -311,7 +349,7 @@ int interactWithClient(int fd){
   if(strcmp(msg->cmd, "checkout")==0){
     checkout(fd, msg);
   }else if(strcmp(msg->cmd, "update")==0){
-    //update(fd, msg);
+    updateS(fd, msg);
   }else if(strcmp(msg->cmd, "upgrade")==0){
     //upgrade(fd, msg);
   }else if(strcmp(msg->cmd, "commit")==0){
@@ -380,6 +418,7 @@ int main(int argc, char** argv){
     }else{
       printf("Server accepted the client\n");
       interactWithClient(clientfd);
+      printf("Listening\n");
     }
   }
   //int bytes=readBytesNum(clientfd);

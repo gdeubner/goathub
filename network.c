@@ -96,21 +96,16 @@ int buildClient(){
 
 int freeMSG(message *msg){ // assumes all pointers were malloced!
   free(msg->cmd);
-  if(msg->numargs>0){
-    while(msg->numargs>0){
-      free(msg->args[msg->numargs]);
-      msg->numargs--;
-    }
-    free(msg->args);
+  int i;
+  for(i = 0; i<msg->numargs; i++){
+    free(msg->args[i]);
   }
+  free(msg->args);
   free(msg->dirs);
-  if(msg->numfiles>0){
-    while(msg->numfiles>0){
-      free(msg->filepaths[msg->numfiles-1]);
-      msg->numfiles--;
-    }
-    free(msg->filepaths);
+  for(i = 0; i<msg->numfiles; i++){
+    free(msg->filepaths[i]);
   }
+  free(msg->filepaths);
   free(msg->filelens);
   free(msg);
   return 0;
@@ -243,6 +238,7 @@ int sendMessage(int fd, message *msg){
     free(temp);
     buffer[count++] = d;
   }
+  //printf("%s\n", buffer);
   write(fd, buffer, count);
   //now fill buffer with files and give to fd
   for(i=0;i<msg->numfiles;i++){

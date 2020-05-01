@@ -10,76 +10,182 @@
 #include <openssl/sha.h>
 #include "fileManip.h"
 #include "network.h"
+#include "gStructs.h"
 #include "client.h"
-
-message* buildMessage(char**,int,int);
-int destroy(char*);
-int destroy(char* project){
-  int serverfd=buildClient();
-  if(serverfd<0){
-    printf("ERROR:Cannot connect to server\n");
-    close(serverfd);
-    return 0;
+int update(char* projectName){
+  int serverfd = buildClient();
+  if(serverfd<0)
+    return -1;
+  message *msg = malloc(sizeof(message));
+  msg->cmd = "update";
+  msg->numargs = 1;
+  msg->args = malloc(sizeof(char*));
+  msg->args[0] = projectName;
+  msg->numfiles = 0;
+  if(sendMessage(serverfd, msg)<0){
+    printf("Error: Message failed to send.\n");
+    return -1;
   }
-  message* msg=malloc(sizeof(message));
-  msg->cmd="destroy";
-  msg->numargs=1;
-  msg->args=malloc(sizeof(char*));
-  msg->args[0]=project;
-  msg->numfiles=0;
-  sendMessage(serverfd,msg);
-  char* check=malloc(sizeof(char)*2);
-  memset(check,'\0',2);
-  read(serverfd,check,1);
-  check[1]='\0';
-  if(atoi(check)==0){
-    printf("Error: project not found\n");
-  }else{
-    printf("Project: %s deleted.\n",project);
-  }
-  free(check);
   free(msg->args);
   free(msg);
+  msg = recieveMessage(serverfd, msg);
+  if(strcmp(msg->cmd, "error")==0){
+    printf("%s", msg->args[0]);
+    freeMSG(msg);
+    return -1;
+  }
+  char *conflictPath = malloc(sizeof(char)*(strlen(projectName)+13));
+  memset(conflictPath, '\0', strlen(projectName)+13);
+  strcat(conflictPath, "./");
+  strcat(conflictPath, projectName);
+  strcat(conflictPath, "/.Conflict");
+  remove(conflictPath);
+  int confd = open(conflictPath, O_RDWR|O_CREAT, 00600);
+  char *updatePath = malloc(sizeof(char)*(strlen(projectName)+11));
+  memset(updatePath, '\0', strlen(projectName)+13);
+  strcat(updatePath, "./");
+  strcat(updatePath, projectName);
+  strcat(updatePath, "/.Update");
+  int upfd; 
+  upfd = open(updatePath, O_RDWR|O_CREAT, 00600);
+  if(upfd<0){
+    if(remove(".Update")>=0)
+      upfd = open(".Update", O_RDWR);
+    else{
+      printf("Error: unable to create .Update file for %s\n", projectName);
+      free(updatePath);
+      free(conflictPath);
+      close(serverfd);
+      return -1;
+    }
+  }
+  char *manPath = malloc(sizeof(char)*(strlen(projectName)+13));
+  memset(manPath, '\0', strlen(projectName)+13);
+  strcat(manPath, "./");
+  strcat(manPath, projectName);
+  strcat(manPath, "/.Manifest");
+  int manfd = open(manPath, O_RDONLY);
+  if(manfd<0){
+    printf("Error: Unable to find .Manifest for %s\n", projectName);
+    return -1;
+  }
+  wnode *servhead, *clihead = NULL;
+  int tempfd = open("tempToaster.txt", O_RDWR|O_CREAT, 00600);
+  copyNFile(tempfd, serverfd, msg->filelens[0]);
+  servhead = scanFile(tempfd, servhead, " \n");
+  clihead = scanFile(manfd, clihead, " \n");
+  if(servhead->str[0]==clihead->str[0]){
+    printf("Up To Date\n", projectName);
+    remove(conflictPath);//
+    cleanLL(servhead);
+    cleanLL(clihead);
+    close(serverfd);
+    close(manfd);
+    free(manPath);
+    close(tempfd);
+    remove("tempToaster.txt");
+    return 0;
+  }
+  servhead = condenseLL(servhead);
+  clihead = condenseLL(clihead);
+  wnode *sptr = servhead;
+  wnode *sprev = NULL;
+  int removedServerEntry = 0;
+  int conflict = 0;
+  while(sptr!=NULL && clihead!=NULL){
+    removedServerEntry = 0;
+    wnode *cptr = clihead;
+    wnode *cprev = NULL;
+    while(cptr!=NULL){ // looks for each server manifest entry in the client's man
+      if(strcmp(sptr->str, cptr->str)!=0){//move to next file in client .Manifest
+	cprev = cptr;
+	cptr = cptr->next;
+      }else{//found file in client manifest
+	if(sptr->num == cptr->num && strcmp(sptr->byte, cptr->byte)==0){ //hashes match
+	  if(cprev==NULL){ //first entry
+	    cptr = removeFirstNodeLL(cptr);
+	    clihead = cptr;
+	  }else{//not first entry
+	    cprev->next= removeNodeLL(cprev);
+	    cptr = cprev->next;
+	  }
+	}else{//hashes don't match
+	  //hash the file and compare it to client's hash
+	  char *livehash = NULL;
+	  livehash = hashFile(cptr->str, livehash);
+	  //writes modify code to .Update
+	  if(strcmp(livehash, cptr->byte)==0){
+	    // make sure it makes sense to write the server's hash here, might be a mistake in the description
+	    if(conflict==0)
+	      writeCode(upfd, 'M', clihead->str, servhead->byte);
+	    if(cprev==NULL){ //first entry
+	      cptr = removeFirstNodeLL(cptr);
+	      clihead = cptr;
+	    }else{//not first entry
+	      cprev->next= removeNodeLL(cprev);
+	      cptr = cprev->next;
+	    }
+	  }else{
+	    if(conflict==1){
+	      close(upfd);
+	      remove(updatePath);
+	    }
+	    conflict = 1;
+	    writeCode(confd, 'C', clihead->str, livehash);
+	    if(cprev==NULL){ //first entry
+	      cptr = removeFirstNodeLL(cptr);
+	      clihead = cptr;
+	    }else{//not first entry
+	      cprev->next= removeNodeLL(cprev);
+	      cptr = cprev->next;
+	    }
+	  }
+	  free(livehash);
+	}//// end else (hashes dont match)
+	//remove server entry and set removed
+	if(sprev==NULL){ //first entry
+	  sptr = removeFirstNodeLL(sptr);
+	  servhead = sptr;
+	}else{ //not first entry
+	  sprev->next = removeNodeLL(sprev);
+	  sptr = sprev->next;
+	}
+	removedServerEntry = 1;
+	break;
+      }////end else   (found matching filepath in client's .manifest)
+      
+    }////end client while loop
+    if(removedServerEntry==0){
+      sprev=sptr;
+      sptr=sptr->next;
+    }
+  }/////end server while loop
+  //writes add code to .Update
+  while(servhead!=NULL){
+    if(conflict==0)
+      writeCode(upfd, 'A', servhead->str, servhead->byte);
+    servhead = removeFirstNodeLL(servhead);
+  }
+  //writes delete code to .Update
+  while(clihead!=NULL){
+    if(conflict==0)
+      writeCode(upfd, 'D', clihead->str, clihead->byte);
+    clihead = removeFirstNodeLL(clihead);
+  }
+  close(tempfd);
+  remove("tempToaster.txt");
+  if(conflict==0)
+    remove(conflictPath);
+  close(manfd);
   close(serverfd);
-  return 1;
+  free(updatePath);
+  free(conflictPath);
+  freeMSG(msg);
+  return 0;
 }
-int history(char*);
-int history(char* project){
-  int serverfd=buildClient();
-  if(serverfd<0){
-    printf("ERROR:Cannot connect to server\n");
-    close(serverfd);
-    return 1;
-  }
-  message* msg=malloc(sizeof(message));
-  msg->cmd="history";
-  msg->numargs=1;
-  msg->args=malloc(sizeof(char*));
-  msg->args[0]=project;
-  msg->numfiles=0;
-  sendMessage(serverfd,msg);
-  free(msg->args);
-  free(msg);
-  char* check=malloc(sizeof(char)*2);
-  memset(check,'\0',2);
-  read(serverfd,check,1);
-  check[1]='\0';
-  if(atoi(check)==0){
-    printf("Project not found\n");
-    close(serverfd);
-    free(check);
-    return 0;
-  }
-  free(check);
-  int len=readBytesNum(serverfd);
-  char* temp=malloc(sizeof(char)*(len+1));
-  memset(temp,'\0',len+1);
-  read(serverfd,temp,len);
-  printf("%s\n",temp);
-  free(temp);
-  return 1;
-}
+
 int rollbackC(char*,char*);
+
 int rollbackC(char* project,char* version){
   int serverfd=buildClient();
   if(serverfd<0){
@@ -112,7 +218,6 @@ int rollbackC(char* project,char* version){
   printf("%s rolled back to %s\n",project,version);
   return 1;
 }
-void printManifest(char*);
 void printManifest(char* str){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
@@ -151,7 +256,6 @@ void printManifest(char* str){
   free(temp);
   return;
 }
-int currentVersionC(char*);
 int currentVersionC(char* project){
   int serverfd=buildClient();
   if(serverfd<0){
@@ -420,35 +524,6 @@ int createC(char *projectName){
   return 0;
 }
 
-
-message* buildMessage(char** argv,int argc,int ipCheck){
-  if(ipCheck==1){
-    argc=argc-2;
-  }
-  message* msg=malloc(sizeof(message));
-  msg->cmd=malloc(sizeof(char)*strlen(argv[1])+1);
-  memset(msg->cmd,'\0',strlen(argv[1])+1);
-  msg->numargs=argc-1;
-  //right now just filled with commands that has only server send stuff back
-  if(strcmp("checkout",msg->cmd)==0||
-     strcmp("destroy",msg->cmd)==0||
-     strcmp("create",msg->cmd)==0||
-     strcmp("history",msg->cmd)==0||
-     strcmp("currentversion",msg->cmd)==0||
-     strcmp("rollback",msg->cmd)==0){
-    msg->args=malloc(sizeof(char*)*msg->numargs);
-    msg->args[0]=malloc(sizeof(char)*strlen(argv[2])+1);
-    memset(msg->args[0],'\0',strlen(argv[2])+1);
-    memcpy(msg->args[0],argv[2],strlen(argv[2]));
-    if(strcmp("rollback",msg->cmd)==0){
-      msg->args[1]=malloc(sizeof(char)*strlen(argv[3])+1);
-      memset(msg->args[1],'\0',strlen(argv[2])+1);
-      memcpy(msg->args[1],argv[2],strlen(argv[2]));
-    }
-    return msg;
-  }
-  return msg;
-}
 int configure(char* IP,char* port){
   int fd=open(".configure",O_RDWR);
   if(fd>0){
@@ -468,37 +543,7 @@ int configure(char* IP,char* port){
 }
 
 int main(int argc, char** argv){
-  /* int fd = open("test.txt",O_RDWR|O_CREAT,00600); */
-  /* message *msg = malloc(sizeof(message)); */
-  /* msg->cmd = "command"; */
-  /* msg->numargs = 1; */
-  /* msg->args = malloc(sizeof(char*)*1); */
-  /* msg->args[0] = "argument 1"; */
-  /* msg->numfiles = 1; */
-  /* msg->dirs = "0"; */
-  /* msg->filepaths = malloc(sizeof(char*)*1); */
-  /* msg->filepaths[0] = "test1.txt"; */
-  /* sendMessage(fd, msg); */
-  /* free(msg->args); */
-  /* msg->cmd = NULL; */
-  /* msg->numargs = 0; */
-  /* msg->numfiles = 0; */
-  /* free(msg->filepaths); */
-
-  /* free(msg); */
   
-  /* lseek(fd, 0, SEEK_SET); */
-  /* recieveMessage(fd, msg); */
-  /* printf("%s\n", msg->cmd); */
-  /* printf("%d\n", msg->numargs); */
-  /* printf("%s\n", msg->args[0]); */
-  /* printf("%d\n", msg->numfiles); */
-  /* printf("%s\n", msg->dirs); */
-  /* printf("%s\n", msg->filepaths[0]); */
-  /* int fdend = open("testend.txt",O_RDWR|O_CREAT,00600); */
-  /* copyFile(fdend, fd); */
-  
-  /* return 0; */
   if(argc<2||argc>4){
     printf("Error: Incorrect number of arguments\n");
     return 0;
@@ -508,7 +553,7 @@ int main(int argc, char** argv){
   }else if(strcmp(argv[1], "checkout")==0){
     checkoutC(argv[2]);
   }else if(strcmp(argv[1], "update")==0){
-    //configure(argv[2], argv[3]);
+    update(argv[2]);
   }else if(strcmp(argv[1], "upgrade")==0){
     //configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "commit")==0){

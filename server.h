@@ -3,6 +3,7 @@
 
 
 int rollback(int,message*);
+int upgradeS(int client, message *msg);
 int updateS(int client, message *msg);
 void receiveFile(int,char*);
 int currentVersion(int,message*);

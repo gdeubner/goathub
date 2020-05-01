@@ -6,6 +6,7 @@ typedef struct WNODE{
   int fragment;
   char *str;
   char *byte;
+  char c;
   struct WNODE *next;
 } wnode;
 

@@ -80,6 +80,181 @@ int upgrade(char *projectName){
   return 0;
 }
 
+int commit(char*);
+int commit(char* project){
+  int serverfd=buildClient();
+  if(serverfd<0){
+    printf("ERROR:Cannot connect to server\n");
+    close(serverfd);
+    return 0;
+  }
+  char* path=malloc(sizeof(char)*2000);
+  memset(path,'\0',2000);
+  strcat(path,project);
+  strcat(path,"/.Update");//path should be <project>/.Update
+  char* temp=malloc(sizeof(char)*10);
+  memset(temp,'\0',10);
+  int updatefd=open(path,O_RDONLY);
+  if(!updatefd<0){//.Update exists
+    read(updatefd,temp,9);
+    if(strcmp(temp,"")!=0){//check to see if .Update is not empty, quit if so
+      printf("ERROR:.Update file is not empty, please update local repository and try again\n");
+      close(updatefd);
+      close(serverfd);
+      return 0;
+    }
+    close(updatefd);
+  }
+  memset(path,'\0',2000);
+  strcat(path,project);
+  strcat(path,"/.Conflict");
+  int conflictfd=open(path,O_RDONLY);
+  if(conflictfd>0){
+    printf("ERROR:.Conflict found, please resolve before commiting\n");
+    close(conflictfd);
+    close(serverfd);
+    return 0;
+  }
+  close(conflictfd);
+  int localManfd=open(path,O_RDONLY);
+  if(localManfd<0){
+    close(localManfd);
+    close(serverfd);
+    printf("ERROR:No local manifest found\n");
+    return 0;
+  }
+  message* msg=malloc(sizeof(message));
+  msg->cmd="commit";
+  msg->numargs=1;
+  msg->args=malloc(sizeof(char*));
+  msg->args[0]=project;
+  msg->numfiles=0;
+  sendMessage(serverfd,msg);
+  free(msg->args);
+  free(msg);
+  char* check=malloc(sizeof(char)*2);
+  memset(check,'\0',2);
+  read(serverfd,check,1);
+  if(atoi(check)==0){
+    printf("ERROR: Project server manifest not found\n");
+    free(check);
+    close(serverfd);
+    return 0;
+  }
+  int len=readBytesNum(serverfd);
+  char* serverMan=malloc(sizeof(char)*(len+1));
+  memset(serverMan,'\0',len+1);
+  read(serverfd,serverMan,len);//serverMan holds .Manifest from server
+  memset(path,'\0',2000);
+  strcat(path,project);
+  strcat(path,"/.Manifest");//holds string: <project>/.Manifest
+  char* buffer=malloc(sizeof(char)*2001);
+  char* localMan=malloc(sizeof(char)*2001);
+  memset(localMan,'\0',2001);
+  int i=1;
+  int totalBytesRead=0;
+  int bytesToRead=2000;
+  int bytesRead=-1;
+  do{
+    memset(buffer,'\0',2001);
+    bytesRead=0;
+    while(bytesRead<=bytesToRead){
+      bytesRead=read(localManfd,localMan,bytesToRead);
+      totalBytesRead+=bytesRead;
+      if(bytesRead==0){
+	break;
+      }
+      if(bytesRead<0){
+	printf("ERROR:Unable to read bytes from File\n");
+	close(localManfd);
+	return 0;
+      }
+      if(totalBytesRead>=2000*i){
+	i++;
+	char* new = malloc(sizeof(char)*((2000*i)+1));
+	memset(new,'0',(2000*i)+1);
+	memcpy(new,localMan,strlen(localMan));
+	char* old=localMan;
+	localMan=new;
+	free(old);
+      }
+      strcat(localMan,buffer);
+    }
+  }while(bytesRead!=0);
+  close(localManfd);
+  free(buffer);
+  if(strcmp(localMan,serverMan)!=0){
+    printf("ERROR:Local and Server Manifest do not match, please update local project\n");
+  }
+  
+  return 1;
+}
+int history(char*);
+int history(char* project){
+  int serverfd=buildClient();
+  if(serverfd<0){
+    printf("ERROR:Cannot connect to server\n");
+    close(serverfd);
+    return 0;
+  }
+  message* msg=malloc(sizeof(message));
+  msg->cmd="history";
+  msg->numargs=1;
+  msg->args=malloc(sizeof(char*));
+  msg->args[0]=project;
+  msg->numfiles=0;
+  sendMessage(serverfd,msg);
+  free(msg->args);
+  free(msg);
+  char* check=malloc(sizeof(char)*2);
+  memset(check,'\0',2);
+  read(serverfd,check,1);
+  if(atoi(check)==0){
+    printf("Project not found\n");
+    close(serverfd);
+    free(check);
+    return 0;
+  }
+  free(check);
+  int len=readBytesNum(serverfd);
+  char*temp=malloc(sizeof(char)*(len+1));
+  memset(temp,'\0',len+1);
+  read(serverfd,temp,len);
+  printf("%s\n",temp);
+  close(serverfd);
+  free(temp);
+  return 1;
+}
+int destroy(char*);
+int destroy(char* project){
+  int serverfd=buildClient();
+  if(serverfd<0){
+    printf("ERROR:Cannot connect to server\n");
+    close(serverfd);
+    return 0;
+  }
+  message* msg=malloc(sizeof(message));
+  msg->cmd="destroy";
+  msg->numargs=1;
+  msg->args=malloc(sizeof(char*));
+  msg->args[0]=project;
+  msg->numfiles=0;
+  sendMessage(serverfd,msg);
+  char* check=malloc(sizeof(char)*2);
+  memset(check,'\0',2);
+  read(serverfd,check,1);
+  check[1]='\0';
+  if(atoi(check)==0){
+    printf("Error: project not found\n");
+  }else{
+    printf("Project: %s deleted.\n",project);
+  }
+  free(check);
+  free(msg->args);
+  free(msg);
+  return 1;
+}
+
 int update(char* projectName){
   int serverfd = buildClient();
   if(serverfd<0)
@@ -286,6 +461,7 @@ int rollbackC(char* project,char* version){
   printf("%s rolled back to %s\n",project,version);
   return 1;
 }
+void printManifest(char*);
 void printManifest(char* str){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
@@ -327,7 +503,8 @@ void printManifest(char* str){
 int currentVersionC(char* project){
   int serverfd=buildClient();
   if(serverfd<0){
-    printf("Error: Cannot connect to server");
+    printf("Error: Cannot connect to server\n");
+    close(serverfd);
     return 0;
   }
   message* msg=malloc(sizeof(message));

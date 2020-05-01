@@ -293,12 +293,12 @@ char *itoa(char *snum, int num){
 int sendFile(int client,char* name){
   int fd=open(name,O_RDONLY);
   if(fd<0){
-    printf("File does not exist");
-    char* msg="File does not exist";
-    //send(client,msg,strlen(msg));
+    printf("File does not exist\n");
+    write(client,"0",1);
     close(fd);
     return 0;
   }
+  write(client,"1",1);
   char* buffer=malloc(sizeof(char)*2000+1);
   char* fileContent=malloc(sizeof(char)*2000+1);
   memset(fileContent,'\0',2000+1);

@@ -13,6 +13,72 @@
 #include "client.h"
 
 message* buildMessage(char**,int,int);
+int destroy(char*);
+int destroy(char* project){
+  int serverfd=buildClient();
+  if(serverfd<0){
+    printf("ERROR:Cannot connect to server\n");
+    close(serverfd);
+    return 0;
+  }
+  message* msg=malloc(sizeof(message));
+  msg->cmd="destroy";
+  msg->numargs=1;
+  msg->args=malloc(sizeof(char*));
+  msg->args[0]=project;
+  msg->numfiles=0;
+  sendMessage(serverfd,msg);
+  char* check=malloc(sizeof(char)*2);
+  memset(check,'\0',2);
+  read(serverfd,check,1);
+  check[1]='\0';
+  if(atoi(check)==0){
+    printf("Error: project not found\n");
+  }else{
+    printf("Project: %s deleted.\n",project);
+  }
+  free(check);
+  free(msg->args);
+  free(msg);
+  close(serverfd);
+  return 1;
+}
+int history(char*);
+int history(char* project){
+  int serverfd=buildClient();
+  if(serverfd<0){
+    printf("ERROR:Cannot connect to server\n");
+    close(serverfd);
+    return 1;
+  }
+  message* msg=malloc(sizeof(message));
+  msg->cmd="history";
+  msg->numargs=1;
+  msg->args=malloc(sizeof(char*));
+  msg->args[0]=project;
+  msg->numfiles=0;
+  sendMessage(serverfd,msg);
+  free(msg->args);
+  free(msg);
+  char* check=malloc(sizeof(char)*2);
+  memset(check,'\0',2);
+  read(serverfd,check,1);
+  check[1]='\0';
+  if(atoi(check)==0){
+    printf("Project not found\n");
+    close(serverfd);
+    free(check);
+    return 0;
+  }
+  free(check);
+  int len=readBytesNum(serverfd);
+  char* temp=malloc(sizeof(char)*(len+1));
+  memset(temp,'\0',len+1);
+  read(serverfd,temp,len);
+  printf("%s\n",temp);
+  free(temp);
+  return 1;
+}
 int rollbackC(char*,char*);
 int rollbackC(char* project,char* version){
   int serverfd=buildClient();
@@ -51,7 +117,7 @@ void printManifest(char* str){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
   int ptr=0;
-  while(str[ptr]!='\n'){
+  while(ptr<strlen(str)&&str[ptr]!='\n'){
     temp[ptr]=str[ptr];
     ptr++;
   }
@@ -80,8 +146,7 @@ void printManifest(char* str){
     int fileVer=atoi(temp);
     ptr++;
     printf("and its version is: %d\n",fileVer);
-    ptr+=5;//4 byte test hash plus new line
-    //ptr+=41;//40 bytes file hash and new line char
+    ptr+=41;//40 bytes file hash and new line char
   }
   free(temp);
   return;
@@ -102,8 +167,15 @@ int currentVersionC(char* project){
   sendMessage(serverfd,msg);
   free(msg->args);
   free(msg);
+  char* check=malloc(sizeof(char)*2);
+  read(serverfd,check,1);
+  check[1]='\0';
+  if(atoi(check)==0){
+    printf("Project not found\n");
+    return 0;
+  }
+  free(check);
   int len=readBytesNum(serverfd);
-  printf("%d\n",len);
   char* temp=malloc(sizeof(char)*(len+1));
   memset(temp,'\0',len+1);
   read(serverfd,temp,len);
@@ -446,7 +518,7 @@ int main(int argc, char** argv){
   }else if(strcmp(argv[1], "create")==0){
     createC(argv[2]);
   }else if(strcmp(argv[1], "destroy")==0){
-    //configure(argv[2], argv[3]);
+    destroy(argv[2]);
   }else if(strcmp(argv[1], "add")==0){
     add(argv[2], argv[3]);
   }else if(strcmp(argv[1], "remove")==0){
@@ -454,7 +526,7 @@ int main(int argc, char** argv){
   }else if(strcmp(argv[1], "currentversion")==0){
     currentVersionC(argv[2]);
   }else if(strcmp(argv[1], "history")==0){
-    //configure(argv[2], argv[3]);
+    history(argv[2]);
   }else if(strcmp(argv[1], "rollback")==0){
     if(argc!=4){
       printf("Error not enough arguments\n");

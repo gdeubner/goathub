@@ -334,7 +334,7 @@ int sendFile(int client,char* name){
       if(bytesRead<0){
 	printf("Error: Unable to read bytes from File\n");
 	close(fd);
-	exit(0);
+	return 0;
       }
       if(totalBytesRead>=2000*i){
       i++;
@@ -366,23 +366,11 @@ int sendFile(int client,char* name){
     sprintf(prefix,"%i",strlen(fileContent));
     prefix[count]='\0';
   }
-  //prefix=itoa(prefix,fileSize);
   printf("%s\n",prefix);
-  /*char* toSend=malloc(sizeof(char)*(fileSize+strlen(prefix)+2));
-  memset(toSend,'\0',(fileSize+strlen(prefix)+2));
-  memcpy(toSend,prefix,strlen(prefix));
-  strcat(toSend,":");
-  strcat(toSend,fileContent);*/
   write(client,prefix,strlen(prefix));
   write(client,":",1);
   write(client,fileContent,strlen(fileContent));
-  //free(toSend);
-  //sendAll(client,fileContent,strlen(fileContent));
-  //printf("File content is: \n %s \n",toSend);
-  //printf("File Sent: %s\n",name);
   free(prefix);
-  //free(buffer);
-  //free(toSend);
   free(fileContent);
   return 1;
 }

@@ -17,6 +17,7 @@
 
 #define SA struct sockaddr
 
+
 int updateS(int client, message *msg){
   DIR *proj = opendir(msg->args[0]); // attempts to open project name
   if(proj==NULL){ // sends error to client if project doesn't exist
@@ -53,26 +54,28 @@ int updateS(int client, message *msg){
   return 0;
 }
 
+void receiveFile(int,char*);
+int history(int,message*);
+int history(int client,message* msg){
+  char* temp=malloc(sizeof(char)*2000);
+  memset(temp,'\0',2000);
+  memcpy(temp,msg->args[0],strlen(msg->args[0]));
+  strcat(temp,"log");
+  sendFile(client,temp);
+  free(msg->cmd);
+  free(msg->args[0]);
+  free(msg->args);
+  free(msg);
+  free(temp);
+  return 1;
+}
+int currentVersion(int,message*);
 //Sends manifest file of project over
 int currentVersion(int client,message* msg){
-  /*int fd=open(".manifest",O_RDONLY);
-  if(fd<0){
-    printf("Manifest not found");
-    return 0;
-  }
-  char* buffer=malloc(sizeof(char)*2000);
-  return 1;*/
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
   memcpy(temp,msg->args[0],strlen(msg->args[0]));
   strcat(temp,"/.Manifest");
-  /*if(sendFile(client,temp)){
-    //free(temp);
-    return 1;
-  } else{
-    //free(temp);
-    return 0;
-  }*/
   sendFile(client,temp);
   free(msg->cmd);
   free(msg->args[0]);
@@ -156,8 +159,6 @@ int rollback(int client,message* msg){
   write(client,"1",1);
   return 1;
 }
-int destroy(char*);
-
 
 int checkout(int client, message *msg){
   DIR *proj = opendir(msg->args[0]); // attempts to open project name
@@ -221,10 +222,36 @@ int checkout(int client, message *msg){
   free(project);
   return 1;
 }
-
+int destroy(int,message*);
+int destroy(int client,message* msg){
+  char* temp=malloc(sizeof(char)*2000);
+  memset(temp,'\0',2000);
+  char* copy="rm -r ";
+  strcat(temp,copy);
+  strcat(temp,msg->args[0]);
+  int check=system(temp);
+  if(check!=0){//If project isn't deleted
+    write(client,"0",1);
+    free(msg->cmd);
+    free(msg->args[0]);
+    free(msg->args);
+    free(msg);
+    return 0;
+  }
+  strcat(temp,"archive");
+  system(temp);
+  write(client,"1",1);
+  free(msg->cmd);
+  free(msg->args[0]);
+  free(msg->args);
+  free(msg);
+  printf("Project deleted");
+  return 0;
+}
 //Will need to look at again after commit is finished so we can destroy pending commits
 //Recursively removes project directory, files and sub directories, returns 0 on success 
-int destroy(char* path){
+//Changed to new function for system call implementation instead
+/*int destroy(char* path){
   DIR *dir=opendir(path);
   int dirLen=strlen(path);
   int check=-1;
@@ -260,7 +287,7 @@ int destroy(char* path){
     check=rmdir(path);
     }
   return check;
-}
+}*/
 
 int createS(int fd, message *msg){
   int clientfd = fd; 
@@ -332,11 +359,11 @@ int interactWithClient(int fd){
   }else if(strcmp(msg->cmd, "create")==0){
     createS(fd, msg);
   }else if(strcmp(msg->cmd, "destroy")==0){
-    //destroy(fd, msg);
+    destroy(fd, msg);
   }else if(strcmp(msg->cmd, "currentversion")==0){
     currentVersion(fd, msg);
   }else if(strcmp(msg->cmd, "history")==0){
-    //histroy(fd, msg);
+    history(fd, msg);
   }else if(strcmp(msg->cmd, "rollback")==0){
     rollback(fd, msg);
   }else{

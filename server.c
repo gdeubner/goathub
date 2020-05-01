@@ -37,7 +37,7 @@ int currentVersion(int client,message* msg){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
   memcpy(temp,msg->args[0],strlen(msg->args[0]));
-  strcat(temp,"/.manifest");
+  strcat(temp,"/.Manifest");
   sendFile(client,temp);
   free(msg->cmd);
   free(msg->args[0]);
@@ -54,7 +54,7 @@ int rollback(int client,message* msg){
   char* vcheck=malloc(sizeof(char)*2000);
   memset(vcheck,'\0',2000);
   strcat(vcheck,msg->args[0]);
-  strcat(vcheck,"/.manifest");
+  strcat(vcheck,"/.Manifest");
   int fd=open(vcheck,O_RDONLY);
   if(fd<0){
     free(msg->cmd);

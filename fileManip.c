@@ -9,7 +9,7 @@
 #include "gStructs.h"
 #include "fileManip.h"
 
-int writeCode(int fd, char c, char *path, char *hash){
+int writeCode(int fd, char c, char *path, char *hash){//for update
   char *entry = malloc(sizeof(char)*700);
   memset(entry, '\0', 700);
   entry[0] = c;
@@ -23,6 +23,23 @@ int writeCode(int fd, char c, char *path, char *hash){
   return 0;
 }
 
+int writeCodeC(int fd, char c, char *path, char *hash,int version){//for commit
+  char *entry = malloc(sizeof(char)*700);
+  memset(entry, '\0', 700);
+  entry[0] = c;
+  entry[1] = ' ';
+  strcat(entry, path);
+  printf("%s\n",entry);
+  char* v=itoa(v,version);
+  strcat(entry," ");
+  strcat(entry,v);
+  strcat(entry, " ");
+  strcat(entry, hash);
+  strcat(entry, "\n");
+  write(fd, entry, strlen(entry)); // fix later
+  free(entry);
+  return 0;
+}
 //prints file contents to stdo
 int printFile(char *file){
   int fd = open(file, O_RDONLY);

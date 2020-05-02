@@ -13,6 +13,73 @@
 #include "gStructs.h"
 #include "client.h"
 
+int upgrade(char *projectName){
+  char *conflictPath = malloc(sizeof(char)*(strlen(projectName)+13));
+  memset(conflictPath, '\0', strlen(projectName)+13);
+  strcat(conflictPath, "./");
+  strcat(conflictPath, projectName);
+  strcat(conflictPath, "/.Conflict");
+  int confd = open(conflictPath, O_RDONLY);
+  if(confd<0){
+    printf("Warning: Conflicts exist between remote and local. Resolve conflicts and then update\n");
+    close(confd);
+    free(conflictPath);
+    return 0;
+  }
+  close(confd);
+  char *updatePath = malloc(sizeof(char)*(strlen(projectName)+11));
+  memset(updatePath, '\0', strlen(projectName)+13);
+  strcat(updatePath, "./");
+  strcat(updatePath, projectName);
+  strcat(updatePath, "/.Update");
+  int upfd = open(updatePath, O_RDONLY);
+  if(upfd<0){
+    printf("Warning: No .Update file found for %s. Please update project.\n", projectName);
+    free(updatePath);
+    return 0;
+  }
+  struct stat st;  //might need to free???
+  stat(updatePath, &st);
+  if(st.st_size<=0){
+    printf("Warning: %s is up to date\n", projectName);
+    close(updatePath);
+    remove(updatePath);
+    free(updatePath);
+    return 0;
+  }
+  int serverfd = buildClient();
+  if(serverfd<0){
+    printf("Error: Unable to connect to the server. Please run configure.\n");
+    close(upfd);
+    free(updatePath);
+    return -1;
+  }
+  message *msg = malloc(sizeof(message));
+  msg->cmd = "upgrade";
+  msg->numargs = 1;
+  msg->args = malloc(sizeof(char*));
+  msg->args[0] = projectName;
+  msg->numfiles = 1;
+  msg->dirs = "0";
+  msg->filepaths = malloc(sizeof(char*));
+  msg->filepaths[0] = updatePath;
+  sendMessage(serverfd, msg);
+  free(msg->args);
+  free(msg->filepaths[0]);
+  free(msg->filepaths);
+  free(msg);
+  msg = recieveMessage(serverfd, msg);
+  if(strcmp(msg->cmd, "error")==0){
+    printf(msg->args[0]);
+    freeMSG(msg);
+    close(serverfd);
+    return -1;
+  }
+   
+  
+  return 0;
+}
+
 int commit(char*);
 int commit(char* project){
   char* path=malloc(sizeof(char)*2000);
@@ -324,6 +391,7 @@ int destroy(char* project){
   free(msg);
   return 1;
 }
+
 int update(char* projectName){
   int serverfd = buildClient();
   if(serverfd<0)
@@ -877,7 +945,7 @@ int main(int argc, char** argv){
   }else if(strcmp(argv[1], "create")==0){
     createC(argv[2]);
   }else if(strcmp(argv[1], "destroy")==0){
-    destroy(argv[2]);
+    //destroy(argv[2]);
   }else if(strcmp(argv[1], "add")==0){
     add(argv[2], argv[3]);
   }else if(strcmp(argv[1], "remove")==0){
@@ -885,7 +953,7 @@ int main(int argc, char** argv){
   }else if(strcmp(argv[1], "currentversion")==0){
     currentVersionC(argv[2]);
   }else if(strcmp(argv[1], "history")==0){
-    history(argv[2]);
+    //history(argv[2]);
   }else if(strcmp(argv[1], "rollback")==0){
     if(argc!=4){
       printf("Error not enough arguments\n");

@@ -79,10 +79,34 @@ int commit(int client, message* msg){
   free(msg);
   return 1;
 }
+
+int upgradeS(int client, message *msg){
+  DIR *proj = opendir(msg->args[0]); // attempts to open project name
+  if(proj==NULL){ // sends error to client if project doesn't exist
+    printf("Warning: client requested project: %s which does not exist. Sent error message.\n", msg->args[0]);
+    free(msg->cmd);
+    msg->cmd = "error";
+    msg->numargs = 1;
+    free(msg->args[0]);
+    msg->args[0] = "Error: Project does not exist on server.\n";
+    msg->numfiles = 0;
+    sendMessage(client, msg);
+    free(msg->args);
+    free(msg);
+    return -1;
+  }
+  closedir(proj);
+  wnode *hdead = NULL;
+  
+  
+  
+  return 0;
+}
+
 int updateS(int client, message *msg){
   DIR *proj = opendir(msg->args[0]); // attempts to open project name
   if(proj==NULL){ // sends error to client if project doesn't exist
-    printf("Warning: client requested nonexistent project. Sent error message.\n");
+    printf("Warning: client requested project: %s which does not exist. Sent error message.\n", msg->args[0]);
     free(msg->cmd);
     msg->cmd = "error";
     msg->numargs = 1;
@@ -94,6 +118,7 @@ int updateS(int client, message *msg){
     free(msg);
     return -1;
   }
+  closedir(proj);
   printf("Sent client the .Manifest for %s\n", msg->args[0]);
   //freeMSG(msg);
   msg->cmd = "send .Manifest";

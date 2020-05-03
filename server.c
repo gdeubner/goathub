@@ -10,7 +10,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <dirent.h>
-#include <signal.h>
+#include <pthread.h>
 #include "network.h"
 #include "fileManip.h"
 #include "gStructs.h"
@@ -1033,30 +1033,32 @@ int createS(int clientfd, message *msg){
   return 0;
 }
 
-int interactWithClient(int fd){
+void *interactWithClient(void *fd){
+  int *myfd = (int *)fd;
+  int mfd = *myfd;
   message *msg = NULL;
-  msg = recieveMessage(fd, msg);
+  msg = recieveMessage(mfd, msg);
   printf("[server] message recieved on server\n");
   if(strcmp(msg->cmd, "checkout")==0){
-    checkout(fd, msg);
+    checkout(mfd, msg);
   }else if(strcmp(msg->cmd, "update")==0){
-    updateS(fd, msg);
+    updateS(mfd, msg);
   }else if(strcmp(msg->cmd, "upgrade")==0){
-    upgradeS(fd, msg);
+    upgradeS(mfd, msg);
   }else if(strcmp(msg->cmd, "commit")==0){
-    commit(fd, msg);
+    commit(mfd, msg);
   }else if(strcmp(msg->cmd, "push")==0){
     push(fd, msg);
   }else if(strcmp(msg->cmd, "create")==0){
-    createS(fd, msg);
+    createS(mfd, msg);
   }else if(strcmp(msg->cmd, "destroy")==0){
-    destroy(fd, msg);
+    destroy(mfd, msg);
   }else if(strcmp(msg->cmd, "currentversion")==0){
-    currentVersion(fd, msg);
+    currentVersion(mfd, msg);
   }else if(strcmp(msg->cmd, "history")==0){
-    history(fd, msg);
+    history(mfd, msg);
   }else if(strcmp(msg->cmd, "rollback")==0){
-    rollback(fd, msg);
+    rollback(mfd, msg);
   }else if(strcmp(msg->cmd, "killserver")==0){
     killserverS();
   }else{
@@ -1112,7 +1114,9 @@ int main(int argc, char** argv){
       exit(0);
     }else{
       printf("[server] Server accepted the client\n");
-      interactWithClient(clientfd);
+      pthread_t thread_id;
+      pthread_create(&thread_id, NULL, interactWithClient, (void *)&clientfd);
+      //interactWithClient(clientfd);
       printf("[server] Listening\n");
     }
   }

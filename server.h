@@ -12,7 +12,7 @@ int checkout(int client, message *msg);
 int destroy(int,message*);
 int currentVersion(int,message*);
 int createS(int fd, message *msg);
-int interactWithClient(int fd);
+void *interactWithClient(void *fd);
 
 void receiveFile(int,char*);
 #endif

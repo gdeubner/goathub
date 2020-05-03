@@ -10,6 +10,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <signal.h>
 #include "network.h"
 #include "fileManip.h"
 #include "gStructs.h"
@@ -17,17 +18,25 @@
 
 #define SA struct sockaddr
 
+//void handleIt(int sig);
+
+int killserverS(){
+  printf("[server] Client killed the server.\n");
+  exit(0);
+}
+
 int commit(int client, message* msg){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
   memcpy(temp,msg->args[0],strlen(msg->args[0]));
   strcat(temp,"/.Manifest");//Should <project>/.Manifest"
+  printf("[server] ");
   sendFile(client,temp);//Sends over current manifest
   char* check=malloc(sizeof(char)*2);
   memset(check,'\0',2);
   read(client,check,1);
   if(atoi(check)==0){
-    printf("Client manifest did not match with %s's current manifest\n",msg->args[0]);
+    printf("[server] Client manifest did not match with %s's current manifest\n",msg->args[0]);
     free(check);
     close(client);
     free(temp);
@@ -83,12 +92,12 @@ int commit(int client, message* msg){
 int upgradeS(int client, message *msg){
   DIR *proj = opendir(msg->args[0]); // attempts to open project name
   if(proj==NULL){ // sends error to client if project doesn't exist
-    printf("Warning: client requested project: %s which does not exist. Sent error message.\n", msg->args[0]);
+    printf("[server] Warning: client requested project: %s which does not exist. Sent error message.\n", msg->args[0]);
     free(msg->cmd);
     msg->cmd = "error";
     msg->numargs = 1;
     free(msg->args[0]);
-    msg->args[0] = "Error: Project does not exist on server.\n";
+    msg->args[0] = "[server] Error: Project does not exist on server.\n";
     msg->numfiles = 0;
     sendMessage(client, msg);
     free(msg->args);
@@ -103,7 +112,7 @@ int upgradeS(int client, message *msg){
   strcat(updatePath, "/.Update");
   int upfd = open(updatePath, O_RDWR|O_CREAT, 00600);
   if(upfd<0){
-    printf("Fatal error:[upgradeS] Unable to open .Update file.\n");
+    printf("[server] Fatal error:[upgradeS] Unable to open .Update file.\n");
     return -1;
   }
   copyNFile(upfd, client, msg->filelens[0]);
@@ -144,28 +153,28 @@ int upgradeS(int client, message *msg){
     printf("Start loop\n");
     temp==NULL;
     if(ptr->str[0]=='A' || ptr->str[0]=='M'){
-      printf("filepath: [%s]\n", ptr->str);
+      //printf("filepath: [%s]\n", ptr->str);
       msg->dirs[i] = '0';
       temp = strtok(ptr->str, " ");
-      printf("[%s]\n", temp);
+      //printf("[%s]\n", temp);
       temp = strtok(NULL, " ");
-      printf("[%s]\n", temp);
+      //printf("[%s]\n", temp);
       msg->filepaths[i] = malloc(sizeof(char)*(strlen(temp)+1));
       memset(msg->filepaths[i], '\0', strlen(temp)+1);
       strcpy(msg->filepaths[i], temp);
       i++;
       //maybe free stuff?
     }
-    printf("start freeing\n");
+    //printf("start freeing\n");
     prev = ptr; ptr = ptr->next;
     if(temp==NULL)
       //free(prev->str);
     //free(prev);
     prev = ptr; ptr = ptr->next; //free(prev->str); free(prev);
-    printf("end freeing\n");
+    //printf("end freeing\n");
   }
   sendMessage(client, msg);
-  printf("Updated files sent to client.\n");
+  printf("[server] Updated files sent to client.\n");
   free(msg->dirs);
   for(i = 0; i<numFiles; i++)
     free(msg->filepaths[i]);
@@ -183,12 +192,12 @@ int upgradeS(int client, message *msg){
 int updateS(int client, message *msg){
   DIR *proj = opendir(msg->args[0]); // attempts to open project name
   if(proj==NULL){ // sends error to client if project doesn't exist
-    printf("Warning: client requested project: %s which does not exist. Sent error message.\n", msg->args[0]);
+    printf("[server] Warning: client requested project: %s which does not exist. Sent error message.\n", msg->args[0]);
     free(msg->cmd);
     msg->cmd = "error";
     msg->numargs = 1;
     free(msg->args[0]);
-    msg->args[0] = "Error: project does not exist on server.\n";
+    msg->args[0] = "[server] Error: project does not exist on server.\n";
     msg->numfiles = 0;
     sendMessage(client, msg);
     free(msg->args);
@@ -196,7 +205,7 @@ int updateS(int client, message *msg){
     return -1;
   }
   closedir(proj);
-  printf("Sent client the .Manifest for %s\n", msg->args[0]);
+  printf("[server] Sent client the .Manifest for %s\n", msg->args[0]);
   //freeMSG(msg);
   msg->cmd = "send .Manifest";
   msg->numargs = 0;
@@ -217,13 +226,12 @@ int updateS(int client, message *msg){
   return 0;
 }
 
-void receiveFile(int,char*);
-int history(int,message*);
 int history(int client,message* msg){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
   memcpy(temp,msg->args[0],strlen(msg->args[0]));
   strcat(temp,"log");
+  printf("[server] ");
   sendFile(client,temp);
   free(msg->cmd);
   free(msg->args[0]);
@@ -232,13 +240,14 @@ int history(int client,message* msg){
   free(temp);
   return 1;
 }
-int currentVersion(int,message*);
+
 //Sends manifest file of project over
 int currentVersion(int client,message* msg){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
   memcpy(temp,msg->args[0],strlen(msg->args[0]));
   strcat(temp,"/.Manifest");
+  printf("[server] ");
   sendFile(client,temp);
   free(msg->cmd);
   free(msg->args[0]);
@@ -258,12 +267,12 @@ int rollback(int client,message* msg){
   strcat(vcheck,"/.Manifest");
   int fd=open(vcheck,O_RDONLY);
   if(fd<0){
+    printf("[server] project %s not found\n", msg->args[0]);
     free(msg->cmd);
     free(msg->args[0]);
     free(msg->args);
     free(msg);
     free(vcheck);
-    printf("Project not found\n");
     write(client,"0",1);
     return 0;
   }
@@ -281,7 +290,7 @@ int rollback(int client,message* msg){
     free(msg->args);
     free(msg);
     free(vcheck);
-    printf("Invalid version to be rolled back to\n");
+    printf("[server] Invalid version to be rolled back to\n");
     write(client,"2",1);
     return 2;
   }
@@ -305,7 +314,7 @@ int rollback(int client,message* msg){
     char* temp2=itoa(temp2,v);
     strcat(temp,project);
     strcat(temp,temp2);
-    printf("Version to remove is %s\n",temp2);
+    printf("[server] Version to remove is %s\n",temp2);
   }while(remove(temp)==0);
   memset(temp,'\0',2000);
   strcat(temp,project);
@@ -326,12 +335,12 @@ int rollback(int client,message* msg){
 int checkout(int client, message *msg){
   DIR *proj = opendir(msg->args[0]); // attempts to open project name
   if(proj==NULL){ // sends error to client if project doesn't exist
-    printf("Warning: client requested nonexistent project. Sent error message.\n");
+    printf("[server] Warning: client requested nonexistent project. Sent error message.\n");
     free(msg->cmd);
     msg->cmd = "error";
     msg->numargs = 1;
     free(msg->args[0]);
-    msg->args[0] = "Error: project does not exist on server.\n";
+    msg->args[0] = "[client] Error: project does not exist on server.\n";
     msg->numfiles = 0;
     sendMessage(client, msg);
     free(msg->args);
@@ -378,14 +387,14 @@ int checkout(int client, message *msg){
     count++;
   }
   sendMessage(client, msg);
-  printf("Sent client project: %s\n", project);
+  printf("[server] Sent client project: %s\n", project);
   free(man);
   free(msg->dirs);
   free(msg->filepaths);
   free(project);
   return 1;
 }
-int destroy(int,message*);
+
 int destroy(int client,message* msg){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
@@ -413,7 +422,7 @@ int destroy(int client,message* msg){
   free(msg->args[0]);
   free(msg->args);
   free(msg);
-  printf("Project deleted");
+  printf("[server] Project deleted\n");
   return 0;
 }
 //Will need to look at again after commit is finished so we can destroy pending commits
@@ -462,22 +471,22 @@ int createS(int fd, message *msg){
   char *projectName = msg->args[0];
   if(mkdir(projectName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)<0){
     if(errno==EEXIST){
-      printf("Error: Project %s already exists. Reporting to client.\n", projectName);
+      printf("[server] Error: Project %s already exists. Reporting to client.\n", projectName);
       //message *msg = malloc(sizeof(message));
       msg->cmd = "Error";
       msg->numargs = 1;
       //msg->args = malloc(sizeof(char*));
-      msg->args[0] = "Error: Project already exists on the server.\0";
+      msg->args[0] = "[client] Error: Project already exists on the server.\0";
       msg->numfiles = 0;
       sendMessage(clientfd, msg);
       free(msg->args);
       free(msg);
     }
     //send message to client, saying that project already exists
-    printf("Error: Unable to create project %s\n", projectName);
+    printf("[server] Error: Unable to create project %s\n", projectName);
     return -1;
   }
-  printf("Succefully created project %s\n", projectName);
+  printf("[server] Succefully created project %s\n", projectName);
   int size = strlen(projectName);  
   char *manFile = malloc(sizeof(char)*(size + 13));
   memcpy(manFile, "./", 2);
@@ -485,7 +494,7 @@ int createS(int fd, message *msg){
   memcpy(manFile + 2 + size, "/.Manifest\0", 11);
   int mfd = open(manFile, O_RDWR|O_CREAT, 00600);//creates  server .Manifest
   if(fd<0){
-    printf("Fatal Error: Unable to create .Manifest file for project %s.\n", projectName);
+    printf("[server] Fatal Error: Unable to create .Manifest file for project %s.\n", projectName);
     //alert client
     return -1;
   }
@@ -513,7 +522,7 @@ int createS(int fd, message *msg){
 int interactWithClient(int fd){
   message *msg = NULL;
   msg = recieveMessage(fd, msg);
-  printf("message recieved on server\n");
+  printf("[server] message recieved on server\n");
   if(strcmp(msg->cmd, "checkout")==0){
     checkout(fd, msg);
   }else if(strcmp(msg->cmd, "update")==0){
@@ -534,21 +543,24 @@ int interactWithClient(int fd){
     history(fd, msg);
   }else if(strcmp(msg->cmd, "rollback")==0){
     rollback(fd, msg);
+  }else if(strcmp(msg->cmd, "killserver")==0){
+    killserverS();
   }else{
-    printf("Unknown argument entered\n");
+    printf("[server] Unknown argument entered\n");
   }
+  return 0;
 }
 
 int main(int argc, char** argv){
   if(argc!= 2){
-    printf("Error: Incorrect number of arguments. Only enter port number.\n");
+    printf("[server] Error: Gave %s argument(s). Must only enter port number.\n", argc);
     return 0;
   }
   int sockfd=socket(AF_INET,SOCK_STREAM,0);
   if(sockfd<0){
-    printf("Socket failed\n");
+    printf("[server] Socket failed\n");
   }else{
-    printf("Socket made\n");
+    printf("[server] Socket made\n");
   }
   char* port=argv[1];
   //struct hostent* result=gethostbyname(argv[1]);
@@ -558,20 +570,21 @@ int main(int argc, char** argv){
   serverAddress.sin_addr.s_addr=htonl(INADDR_ANY);
   serverAddress.sin_port=htons(atoi(port));
   if((bind(sockfd,(SA*)&serverAddress,sizeof(serverAddress)))!=0){
-    printf("Bind failed \n");
+    printf("[server] Bind failed \n");
     close(sockfd);
     exit(0);
   }else{
-    printf("Socket binded\n");
+    printf("[server] Socket binded\n");
   }
   int clientfd;
   //do{
   if(listen(sockfd,5)!=0){
-    printf("Listen failed \n");
+    printf("[server] Listen failed \n");
     close(sockfd);
     return 0;
   } else{
-    printf("Listening\n");
+    //signal(SIGUSR1, handleIt);
+    printf("[server] Listening\n");
   }
   struct sockaddr_in cli;
   int len=sizeof(cli);
@@ -579,14 +592,14 @@ int main(int argc, char** argv){
   
   while(clientfd=accept(sockfd,(SA*)&cli,&len)){//;
     if(clientfd<0){
-      printf("Server accept failed\n");
+      printf("[server] Server accept failed\n");
       close(clientfd);
       close(sockfd);
       exit(0);
     }else{
-      printf("Server accepted the client\n");
+      printf("[server] Server accepted the client\n");
       interactWithClient(clientfd);
-      printf("Listening\n");
+      printf("[server] Listening\n");
     }
   }
   //int bytes=readBytesNum(clientfd);

@@ -1,14 +1,18 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-int upgradeS(int client, message *msg);
-int rollback(int,message*);
+int killserverS();
+int commit(int fd,message *msg);
 int upgradeS(int client, message *msg);
 int updateS(int client, message *msg);
-void receiveFile(int,char*);
+int history(int,message*);
 int currentVersion(int,message*);
-int destroy(int fd,message* msg);
+int rollback(int,message*);
+int checkout(int client, message *msg);
+int destroy(int,message*);
+int currentVersion(int,message*);
 int createS(int fd, message *msg);
-int commit(int fd,message *msg);
+int interactWithClient(int fd);
 
+void receiveFile(int,char*);
 #endif

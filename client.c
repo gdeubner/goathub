@@ -13,6 +13,21 @@
 #include "gStructs.h"
 #include "client.h"
 
+int killserver(){
+  int serverfd = buildClient();
+  if(serverfd<0){
+    printf("[client] Error:[killserver] client could not connect to server.\n");
+    return -1;
+  }
+  message *msg = malloc(sizeof(message));
+  msg->cmd = "killserver";
+  msg->numargs = 0;
+  msg->numfiles = 0;
+  sendMessage(serverfd, msg);
+  printf("[client] killing server\n");
+  return 0;
+}
+
 int upgrade(char *projectName){
   char *conflictPath = malloc(sizeof(char)*(strlen(projectName)+13));
   memset(conflictPath, '\0', strlen(projectName)+13);
@@ -21,7 +36,7 @@ int upgrade(char *projectName){
   strcat(conflictPath, "/.Conflict");
   int confd = open(conflictPath, O_RDONLY);
   if(confd>=0){
-    printf("Warning: Conflicts exist between remote and local. Resolve conflicts and then update\n");
+    printf("[client] Warning: Conflicts exist between remote and local. Resolve conflicts and then update\n");
     close(confd);
     free(conflictPath);
     return 0;
@@ -40,15 +55,16 @@ int upgrade(char *projectName){
   struct stat st;  //might need to free???
   stat(updatePath, &st);
   if(st.st_size<=0){
-    printf("Warning: %s is up to date\n", projectName);
+    printf("[client] Warning: %s is up to date\n", projectName);
     close(updatePath);
     remove(updatePath);
     free(updatePath);
     return 0;
   }
+  
   int serverfd = buildClient();
   if(serverfd<0){
-    printf("Error: Unable to connect to the server. Please run configure.\n");
+    printf("[client] Error: Unable to connect to the server. Please run configure.\n");
     close(upfd);
     free(updatePath);
     return -1;
@@ -67,9 +83,7 @@ int upgrade(char *projectName){
   free(msg->filepaths[0]);
   free(msg->filepaths);
   free(msg);
-  printf("recieve start\n");
   msg = recieveMessage(serverfd, msg);
-  printf("recieved fin\n");
   if(strcmp(msg->cmd, "error")==0){
     printf(msg->args[0]);
     freeMSG(msg);
@@ -79,7 +93,7 @@ int upgrade(char *projectName){
   }
   wnode *ptr = NULL;
   ptr = scanFile(upfd, ptr, "\n");
-  printLL(ptr);
+  //printLL(ptr);
   wnode *prev = NULL;
   char *temp = NULL;
   int i = 0;
@@ -89,9 +103,9 @@ int upgrade(char *projectName){
     if(strcmp(temp, "D")==0){ //delete file
       temp = strtok(NULL, " ");
       if(remove(temp)<0)
-	printf("Failed to remove file\n", temp);
+	printf("[client] Failed to remove file: %s\n", temp);
       i++;
-      printf("Deleted %s\n", temp);
+      printf("[client] Deleted file: %s\n", temp);
     }else if(strcmp(temp, "A")==0){ //add new file (with new folders)
       //create new folderzzz
       temp = strtok(NULL, " ");
@@ -112,22 +126,22 @@ int upgrade(char *projectName){
       }	
       int fd = open(temp, O_RDWR|O_CREAT, 00600);
       if(fd<0)
-	printf("Failed to add %s\n", temp);
+	printf("[client] Failed to add file: %s\n", temp);
       copyNFile(fd, serverfd, msg->filelens[i]);
       close(fd);
       i++;
-      printf("Added file %s\n", temp);
+      printf("[client] Added file: %s\n", temp);
     }else if(strcmp(temp, "M")==0){ //modify file (delete and recreate)
       temp = strtok(NULL, " ");
       if(remove(temp)<0)
-	printf("Failed to remove (M) file\n", temp);
+	printf("[client] Failed to remove (M) file: %s\n", temp);
       int fd = open(temp, O_RDWR|O_CREAT, 00600);
       if(fd<0)
-	printf("Failed to add (M) file %s\n", temp);
+	printf("[client] Failed to add (M) file: %s\n", temp);
       copyNFile(fd, serverfd, msg->filelens[i]);
       close(fd);
       i++;
-      printf("Edited %s\n", temp);
+      printf("[client] Edited file: %s\n", temp);
     }
     prev = ptr;
     ptr = ptr->next;
@@ -142,12 +156,11 @@ int upgrade(char *projectName){
   close(serverfd);
   remove(updatePath);
   free(updatePath);
-  printf("%s was upgraded\n", projectName);
+  printf("[client] %s was upgraded\n", projectName);
   //freeMSG(msg);
   return 0;
 }
 
-int commit(char*);
 int commit(char* project){
   char* path=malloc(sizeof(char)*2000);
   memset(path,'\0',2000);
@@ -159,7 +172,7 @@ int commit(char* project){
   if(updatefd>0){//.Update exists
     read(updatefd,temp,9);
     if(strcmp(temp,"")!=0){//check to see if .Update is not empty, quit if so
-      printf("ERROR:.Update file is not empty, please update local repository and try again\n");
+      printf("[client] ERROR:.Update file is not empty, please update local repository and try again\n");
       close(updatefd);
       free(temp);
       free(path);
@@ -173,7 +186,7 @@ int commit(char* project){
   strcat(path,"/.Conflict");
   int conflictfd=open(path,O_RDONLY);
   if(conflictfd>0){
-    printf("ERROR:.Conflict found, please resolve before commiting\n");
+    printf("[client] ERROR:.Conflict found, please resolve before commiting\n");
     free(path);
     close(conflictfd);
     return 0;
@@ -186,12 +199,12 @@ int commit(char* project){
   if(localManfd<0){
     free(path);
     close(localManfd);
-    printf("ERROR:No local manifest found\n");
+    printf("[client] ERROR: No local manifest found\n");
     return 0;
   }
   int serverfd=buildClient();
   if(serverfd<0){
-    printf("ERROR:Cannot connect to server\n");
+    printf("[client] ERROR:Cannot connect to server\n");
     close(serverfd);
     return 0;
   }
@@ -208,7 +221,7 @@ int commit(char* project){
   memset(check,'\0',2);
   read(serverfd,check,1);
   if(atoi(check)==0){
-    printf("ERROR: Project server manifest not found\n");
+    printf("[client] ERROR: Project server manifest not found\n");
     free(check);
     close(serverfd);
     return 0;
@@ -275,7 +288,7 @@ int commit(char* project){
   clihead = scanFile(localManfd, clihead, " \n");
   if(servhead->str[0]!=clihead->str[0]){
     write(serverfd,"0",1);
-    printf("Error: Please synchronize with %s repository before commiting\n", project);
+    printf("[client] Error: Please synchronize with %s repository before commiting\n", project);
     close(comfd);
     remove(path);
     cleanLL(servhead);
@@ -355,7 +368,7 @@ int commit(char* project){
 	  free(path);
 	  close(tempfd);
 	  unlink("tempToaster.txt");
-	  printf("Error: Please synchronize with %s repository before commiting\n", project);
+	  printf("[client] Error: Please synchronize with %s repository before commiting\n", project);
 	  return 0;
 	}
 	//remove server entry and set removed
@@ -388,16 +401,17 @@ int commit(char* project){
   }
   close(tempfd);
   write(serverfd,"1",1);//Send ok to read .Commit file
+  printf("[client] ");
   sendFile(serverfd,path);
   close(serverfd);
   unlink("tempToaster.txt");
   return 1;
 }
-int history(char*);
+
 int history(char* project){
   int serverfd=buildClient();
   if(serverfd<0){
-    printf("ERROR:Cannot connect to server\n");
+    printf("[client] ERROR:Cannot connect to server\n");
     close(serverfd);
     return 0;
   }
@@ -414,7 +428,7 @@ int history(char* project){
   memset(check,'\0',2);
   read(serverfd,check,1);
   if(atoi(check)==0){
-    printf("Project not found\n");
+    printf("[client] Error: Project not found\n");
     close(serverfd);
     free(check);
     return 0;
@@ -429,11 +443,11 @@ int history(char* project){
   free(temp);
   return 1;
 }
-int destroy(char*);
+
 int destroy(char* project){
   int serverfd=buildClient();
   if(serverfd<0){
-    printf("ERROR:Cannot connect to server\n");
+    printf("[client] ERROR: Cannot connect to server\n");
     close(serverfd);
     return 0;
   }
@@ -449,9 +463,9 @@ int destroy(char* project){
   read(serverfd,check,1);
   check[1]='\0';
   if(atoi(check)==0){
-    printf("Error: project not found\n");
+    printf("[client] Error: project not found\n");
   }else{
-    printf("Project: %s deleted.\n",project);
+    printf("[client] Project: %s deleted.\n",project);
   }
   free(check);
   free(msg->args);
@@ -470,7 +484,7 @@ int update(char* projectName){
   msg->args[0] = projectName;
   msg->numfiles = 0;
   if(sendMessage(serverfd, msg)<0){
-    printf("Error: Message failed to send.\n");
+    printf("[client] Error: Message failed to send.\n");
     return -1;
   }
   free(msg->args);
@@ -499,7 +513,7 @@ int update(char* projectName){
     if(remove(".Update")>=0)
       upfd = open(".Update", O_RDWR);
     else{
-      printf("Error: unable to create .Update file for %s\n", projectName);
+      printf("[client] Error: unable to create .Update file for %s\n", projectName);
       free(updatePath);
       free(conflictPath);
       close(serverfd);
@@ -513,7 +527,7 @@ int update(char* projectName){
   strcat(manPath, "/.Manifest");
   int manfd = open(manPath, O_RDONLY);
   if(manfd<0){
-    printf("Error: Unable to find .Manifest for %s\n", projectName);
+    printf("[client] Error: Unable to find .Manifest for %s\n", projectName);
     return -1;
   }
   wnode *servhead, *clihead = NULL;
@@ -522,7 +536,7 @@ int update(char* projectName){
   servhead = scanFile(tempfd, servhead, " \n");
   clihead = scanFile(manfd, clihead, " \n");
   if(servhead->str[0]==clihead->str[0]){
-    printf("Up To Date\n", projectName);
+    printf("[client] Up To Date\n", projectName);
     remove(conflictPath);//
     cleanLL(servhead);
     cleanLL(clihead);
@@ -631,12 +645,10 @@ int update(char* projectName){
   return 0;
 }
 
-int rollbackC(char*,char*);
-
 int rollbackC(char* project,char* version){
   int serverfd=buildClient();
   if(serverfd<0){
-    printf("ERROR:Unable to connect to server\n");
+    printf("[client] ERROR :Unable to connect to server\n");
     close(serverfd);
     return 0;
   }
@@ -654,18 +666,18 @@ int rollbackC(char* project,char* version){
   read(serverfd,buffer,1);
   int check=atoi(buffer);
   if(check==0){
-    printf("Project was not found\n");
+    printf("[client] Error: Project was not found\n");
     return 1;
   }else if(check==1){
     return 1;
   }else if(check==2){
-    printf("Invalid version number to be rolled back to\n");
+    printf("[client] Werror: Invalid version number to be rolled back to\n");
     return 1;
   }
-  printf("%s rolled back to %s\n",project,version);
+  printf("[client] %s rolled back to %s\n",project,version);
   return 1;
 }
-void printManifest(char*);
+
 void printManifest(char* str){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
@@ -674,7 +686,7 @@ void printManifest(char* str){
     temp[ptr]=str[ptr];
     ptr++;
   }
-  printf("Project version is: %d\n",atoi(temp));
+  printf("[client] Project version is: %d\n",atoi(temp));
   ptr++;
   //free(temp);
   while(ptr<strlen(str)-1&&str[ptr]!='\0'){
@@ -687,7 +699,7 @@ void printManifest(char* str){
       i++;
     }
     //int fileVer=atoi(temp);
-    printf("File is: %s ",temp);
+    printf("[client] File is: %s ",temp);
     ptr++;
     i=0;
     memset(temp,'\0',2000);
@@ -707,7 +719,7 @@ void printManifest(char* str){
 int currentVersionC(char* project){
   int serverfd=buildClient();
   if(serverfd<0){
-    printf("Error: Cannot connect to server\n");
+    printf("[client] Error: Cannot connect to server\n");
     close(serverfd);
     return 0;
   }
@@ -724,7 +736,7 @@ int currentVersionC(char* project){
   read(serverfd,check,1);
   check[1]='\0';
   if(atoi(check)==0){
-    printf("Project not found\n");
+    printf("[client] Project not found\n");
     return 0;
   }
   free(check);
@@ -738,7 +750,7 @@ int currentVersionC(char* project){
 }
 int checkoutC(char *projectName){
   if(findDir(".", projectName)>0){
-    printf("Error: Project %s already exists locally.\n", projectName);
+    printf("[client] Error: Project %s already exists locally.\n", projectName);
     return -1;
   }
   int serverfd = buildClient();
@@ -776,21 +788,21 @@ int checkoutC(char *projectName){
     }while(ptr!=NULL);
     int fd = open(msg->filepaths[i], O_RDWR|O_CREAT, 00600);
     if(fd<0){
-      printf("Error: unable to open file: %s\n", msg->filepaths[i]);
+      printf("[client] Error: unable to open file: %s\n", msg->filepaths[i]);
       return -1;
     }
     copyNFile(fd, serverfd, msg->filelens[i]);
     close(fd);
   }
   close(serverfd);
-  printf("Checked out %s from server.\n", projectName);
+  printf("[client] Checked out %s from server.\n", projectName);
   return 0;
 }
 
 int removeF(const char *project, char *file){
   DIR *dirp = opendir(project);
   if(dirp==NULL){
-    printf("Fatal Error: Project directory %s cannot be opened\n", project);
+    printf("[client] Fatal Error: Project directory %s cannot be opened\n", project);
     return -1;
   }
   closedir(dirp);
@@ -809,7 +821,7 @@ int removeF(const char *project, char *file){
   
   int man = open(manPath, O_RDWR);
   if(man<0){
-    printf("Fatal Error: Unable to open the %s/.Manifest file.\n", project);
+    printf("[client] Fatal Error: Unable to open the %s/.Manifest file.\n", project);
     return -1;
   }
   struct stat st;  //might need to free???
@@ -833,7 +845,7 @@ int removeF(const char *project, char *file){
     }
   }
   if(ptr==NULL){
-    printf("Warning: File %s was not found in .Manifest. Could not remove.\n",filePath);
+    printf("[client] Warning: File %s was not found in .Manifest. Could not remove.\n",filePath);
     free(buffer);
     return -1;
   }
@@ -850,7 +862,7 @@ int removeF(const char *project, char *file){
   strcat(temp, ".hcz");
   close(man);
   if(rename(manPath, temp)==-1){
-    printf("Fatal error: Unable to remove file from .Manifest.\n");
+    printf("[client] Fatal error: Unable to remove file from .Manifest.\n");
     free(temp); free(buffer); free(manPath);
     return -1;
   }
@@ -865,14 +877,14 @@ int removeF(const char *project, char *file){
   close(oldman); // need to delete temp file
   remove(temp);
   free(temp);
-  printf("Removed %s from %s.\n", file, project);
+  printf("[client] Removed %s from %s.\n", file, project);
   return 0;
 }
 
 int add(char *project, char *file){
   DIR *dirp = opendir(project);
   if(dirp==NULL){
-    printf("Error: Project directory %s cannot be opened\n", project);
+    printf("[client] Error: Project directory %s cannot be opened\n", project);
     return -1;
   }
   closedir(dirp);
@@ -883,7 +895,7 @@ int add(char *project, char *file){
   strcat(manPath, "/.Manifest");
   if(strfile(manPath, file)>=0){
     free(manPath);
-    printf("Warning: File %s already exists in the .Manifest and cannot be added again.\n", file);
+    printf("[client] Warning: File %s already exists in the .Manifest and cannot be added again.\n", file);
     return -1;
   }
   char *path = malloc(sizeof(char)*(strlen(project)+strlen(file)+2));
@@ -893,7 +905,7 @@ int add(char *project, char *file){
   strcat(path, file);
   int fd = open(path, O_RDWR);
   if(fd<0){
-    printf("Error: Unable to find file %s in %s.\n", file, project);
+    printf("[client] Error: Unable to find file %s in %s.\n", file, project);
     free(path);
     free(manPath);
     return -1;
@@ -902,7 +914,7 @@ int add(char *project, char *file){
   int man = open(manPath, O_RDWR);
   free(manPath);
   if(man<0){
-    printf("Error: Unable to find the %s/.Manifest file.\n", project);
+    printf("[client] Error: Unable to find the %s/.Manifest file.\n", project);
     free(path);
     return -1;
   }
@@ -925,7 +937,7 @@ int add(char *project, char *file){
   free(path);
   free(hash);
   close(man);
-  printf("Added %s to %s\n", file, project);
+  printf("[client] Added %s to %s\n", file, project);
   return 0;
 }
 
@@ -933,7 +945,7 @@ int createC(char *projectName){
   //writes message to server fd
   int serverfd = buildClient();
   if(serverfd<0){
-    printf("Error: Unable to connect to server.\n");
+    printf("[client] Error: Unable to connect to server.\n");
     return -1;
   }
   message *msg = malloc(sizeof(message));
@@ -953,7 +965,7 @@ int createC(char *projectName){
     return -1;
   }
   if(mkdir(projectName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)<0){
-    printf("Error: Unable to create directory %s locally because it already exists.\n", projectName);
+    printf("[client] Error: Unable to create directory %s locally because it already exists.\n", projectName);
     free(msg);
     return -1;
   }
@@ -970,7 +982,7 @@ int createC(char *projectName){
   free(manfile);
   close(fd);
   close(serverfd);
-  printf("Sucessfully added project %s to server and locally.\n", projectName);
+  printf("[client] Sucessfully added project %s to server and locally.\n", projectName);
   return 0;
 }
 
@@ -987,100 +999,102 @@ int configure(char* IP,char* port){
   strcat(buffer, "\t");
   strcat(buffer, port);
   write(fd, buffer, strlen(buffer));
-  printf("Configuration set\n");
+  printf("[client] Configuration set\n");
   close(fd);
   return 1;
 }
 
-int main(int argc, char** argv){
-  
-  if(argc<3){
-    printf("Error: Must give more arguments\n");
+int main(int argc, char** argv){ 
+  if(argc<2){
+    printf("[client] Error: Must give more arguments\n");
     return 0;
   }
   if(strcmp(argv[1], "configure")==0){
     if(argc!=4){
-      printf("Error: configure must have 2 arguments.\n");
+      printf("[client] Error: configure must have 2 arguments.\n");
       return 0;
     }
     configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "checkout")==0){
     if(argc!=3){
-      printf("Error: checkout must have 1 arguments.\n");
+      printf("[client] Error: checkout must have 1 arguments.\n");
       return 0;
     }
     checkoutC(argv[2]);
   }else if(strcmp(argv[1], "update")==0){
     if(argc!=3){
-      printf("Error: update must have 1 arguments.\n");
+      printf("[client] Error: update must have 1 arguments.\n");
       return 0;
     }
     update(argv[2]);
   }else if(strcmp(argv[1], "upgrade")==0){
     if(argc!=3){
-      printf("Error: upgrade must have 1 arguments.\n");
+      printf("[client] Error: upgrade must have 1 arguments.\n");
       return 0;
     }
     upgrade(argv[2]);
   }else if(strcmp(argv[1], "commit")==0){
     if(argc!=3){
-      printf("Error: commit must have 1 arguments.\n");
+      printf("[client] Error: commit must have 1 arguments.\n");
       return 0;
     }
     commit(argv[2]);
   }else if(strcmp(argv[1], "push")==0){
     if(argc!=3){
-      printf("Error: push must have 1 arguments.\n");
+      printf("[client] Error: push must have 1 arguments.\n");
       return 0;
     }
     //push(argv[2]);
   }else if(strcmp(argv[1], "create")==0){
     if(argc!=3){
-      printf("Error: create must have 1 arguments.\n");
+      printf("[client] Error: create must have 1 arguments.\n");
       return 0;
     }
     createC(argv[2]);
   }else if(strcmp(argv[1], "destroy")==0){
     if(argc!=3){
-      printf("Error: destroy must have 1 arguments.\n");
+      printf("[client] Error: destroy must have 1 arguments.\n");
       return 0;
     }
     destroy(argv[2]);
   }else if(strcmp(argv[1], "add")==0){
     if(argc!=4){
-      printf("Error: add must have 2 arguments.\n");
+      printf("[client] Error: add must have 2 arguments.\n");
       return 0;
     }
     add(argv[2], argv[3]);
   }else if(strcmp(argv[1], "remove")==0){
     if(argc!=4){
-      printf("Error: remove must have 2 arguments.\n");
+      printf("[client] Error: remove must have 2 arguments.\n");
       return 0;
     }
     removeF(argv[2], argv[3]);
   }else if(strcmp(argv[1], "currentversion")==0){
     if(argc!=3){
-      printf("Error: currentversion must have 1 arguments.\n");
+      printf("[client] Error: currentversion must have 1 arguments.\n");
       return 0;
     }
     currentVersionC(argv[2]);
   }else if(strcmp(argv[1], "history")==0){
     if(argc!=3){
-      printf("Error: history must have 1 arguments.\n");
+      printf("[client] Error: history must have 1 arguments.\n");
       return 0;
     }
     history(argv[2]);
   }else if(strcmp(argv[1], "rollback")==0){
     if(argc!=4){
-      printf("Error: upgrade must have 2 arguments.\n");
+      printf("[client] Error: upgrade must have 2 arguments.\n");
       return 0;
     }
     rollbackC(argv[2],argv[3]);
+  }else if(strcmp(argv[1], "killserver")==0){
+    if(argc != 2){
+      printf("[client] Error: killserver takes no arguments.\n");
+      return 0;
+    }
+    killserver();
   }else{
-    printf("Error: Unknown argument entered\n");
+    printf("[client] Error: Unknown command entered\n");
   }
-
-  //int sockfd=buildClient();//Call this function whenever you want an fd that connects to server
-  //close(sockfd);
   return 0;
 }

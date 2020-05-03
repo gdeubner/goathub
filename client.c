@@ -149,12 +149,6 @@ int upgrade(char *projectName){
 
 int commit(char*);
 int commit(char* project){
-  int serverfd=buildClient();
-  if(serverfd<0){
-    printf("ERROR:Cannot connect to server\n");
-    close(serverfd);
-    return 0;
-  }
   char* path=malloc(sizeof(char)*2000);
   memset(path,'\0',2000);
   strcat(path,project);
@@ -162,32 +156,43 @@ int commit(char* project){
   char* temp=malloc(sizeof(char)*10);
   memset(temp,'\0',10);
   int updatefd=open(path,O_RDONLY);
-  if(!updatefd<0){//.Update exists
+  if(updatefd>0){//.Update exists
     read(updatefd,temp,9);
     if(strcmp(temp,"")!=0){//check to see if .Update is not empty, quit if so
       printf("ERROR:.Update file is not empty, please update local repository and try again\n");
       close(updatefd);
-      close(serverfd);
+      free(temp);
+      free(path);
       return 0;
     }
-    close(updatefd);
   }
+  close(updatefd);
+  free(temp);
   memset(path,'\0',2000);
   strcat(path,project);
   strcat(path,"/.Conflict");
   int conflictfd=open(path,O_RDONLY);
   if(conflictfd>0){
     printf("ERROR:.Conflict found, please resolve before commiting\n");
+    free(path);
     close(conflictfd);
-    close(serverfd);
     return 0;
   }
   close(conflictfd);
+  memset(path,'\0',2000);
+  strcat(path,project);
+  strcat(path,"/.Manifest");
   int localManfd=open(path,O_RDONLY);
   if(localManfd<0){
+    free(path);
     close(localManfd);
-    close(serverfd);
     printf("ERROR:No local manifest found\n");
+    return 0;
+  }
+  int serverfd=buildClient();
+  if(serverfd<0){
+    printf("ERROR:Cannot connect to server\n");
+    close(serverfd);
     return 0;
   }
   message* msg=malloc(sizeof(message));
@@ -208,10 +213,11 @@ int commit(char* project){
     close(serverfd);
     return 0;
   }
+  free(check);
   int len=readBytesNum(serverfd);
-  char* serverMan=malloc(sizeof(char)*(len+1));
+  /*char* serverMan=malloc(sizeof(char)*(len+1));
   memset(serverMan,'\0',len+1);
-  read(serverfd,serverMan,len);//serverMan holds .Manifest from server
+  /*read(serverfd,serverMan,len);//serverMan holds .Manifest from server
   memset(path,'\0',2000);
   strcat(path,project);
   strcat(path,"/.Manifest");//holds string: <project>/.Manifest
@@ -252,8 +258,139 @@ int commit(char* project){
   free(buffer);
   if(strcmp(localMan,serverMan)!=0){
     printf("ERROR:Local and Server Manifest do not match, please update local project\n");
+    }*/
+  memset(path,'\0',2000);
+  strcat(path,project);
+  strcat(path,"/.Commit"); //path should be <project>/.Commit
+  int comfd=open(path,O_RDWR);
+  if(comfd>0){//.Commit already exists on client
+    unlink(path);//Get rid of it for new commit
+    }
+  comfd=open(path,O_RDWR|O_CREAT,00666);
+  wnode* servhead;
+  wnode* clihead;
+  int tempfd = open("tempToaster.txt", O_RDWR|O_CREAT, 00600);
+  copyNFile(tempfd, serverfd, len);
+  servhead = scanFile(tempfd, servhead, " \n");
+  clihead = scanFile(localManfd, clihead, " \n");
+  if(servhead->str[0]!=clihead->str[0]){
+    write(serverfd,"0",1);
+    printf("Error: Please synchronize with %s repository before commiting\n", project);
+    close(comfd);
+    remove(path);
+    cleanLL(servhead);
+    cleanLL(clihead);
+    close(serverfd);
+    close(localManfd);
+    free(path);
+    close(tempfd);
+    unlink("tempToaster.txt");
+    return 0;
   }
-  
+  servhead = condenseLL(servhead);
+  clihead = condenseLL(clihead);
+  wnode *sptr = servhead;
+  wnode *sprev = NULL;
+  int removedServerEntry = 0;
+  while(sptr!=NULL && clihead!=NULL){
+    removedServerEntry = 0;
+    wnode *cptr = clihead;
+    wnode *cprev = NULL;
+    while(cptr!=NULL){ // looks for each server manifest entry in the client's man
+      if(strcmp(sptr->str, cptr->str)!=0){//move to next file in client .Manifest
+	cprev = cptr;
+	cptr = cptr->next;
+      }else{//found file in client manifest
+	if(sptr->num <= cptr->num && strcmp(sptr->byte, cptr->byte)==0){ //hashes match
+	  //hash the file and compare it to client's hash
+	  char *livehash = NULL;
+	  livehash = hashFile(cptr->str, livehash);
+	  //writes modify code to .Commit
+	  if(strcmp(livehash, cptr->byte)!=0){
+	    // make sure it makes sense to write the server's hash here, might be a mistake in the description
+	    //Live hash and client hash are the not same
+	    writeCodeC(comfd,'M',clihead->str,servhead->byte,clihead->num+1);
+	    if(cprev==NULL){ //first entry
+	      cptr = removeFirstNodeLL(cptr);
+	      clihead = cptr;
+	    }else{//not first entry
+	      cprev->next= removeNodeLL(cprev);
+	      cptr = cprev->next;
+	    }
+	    if(sprev==NULL){ //first entry
+	      sptr = removeFirstNodeLL(sptr);
+	      servhead = sptr;
+	    }else{ //not first entry
+	      sprev->next = removeNodeLL(sprev);
+	      sptr = sprev->next;
+	    }
+	    removedServerEntry = 1;
+	    break;
+	  }else{//Live hash the same as client hash
+	    if(cprev==NULL){ //first entry
+	      cptr = removeFirstNodeLL(cptr);
+	      clihead = cptr;
+	    }else{//not first entry
+	      cprev->next= removeNodeLL(cprev);
+	      cptr = cprev->next;
+	    }
+	    if(sprev==NULL){ //first entry
+	      sptr = removeFirstNodeLL(sptr);
+	      servhead = sptr;
+	    }else{ //not first entry
+	      sprev->next = removeNodeLL(sprev);
+	      sptr = sprev->next;
+	    }
+	    removedServerEntry = 1;
+	    break;
+	  }
+	}else{//Version numbers are wrong or file hash do not match on manifest
+	  write(serverfd,"0",1);
+	  close(comfd);
+	  remove(path);
+	  cleanLL(servhead);
+	  cleanLL(clihead);
+	  close(serverfd);
+	  close(localManfd);
+	  free(path);
+	  close(tempfd);
+	  unlink("tempToaster.txt");
+	  printf("Error: Please synchronize with %s repository before commiting\n", project);
+	  return 0;
+	}
+	//remove server entry and set removed
+	/*if(sprev==NULL){ //first entry
+	  sptr = removeFirstNodeLL(sptr);
+	  servhead = sptr;
+	}else{ //not first entry
+	  sprev->next = removeNodeLL(sprev);
+	  sptr = sprev->next;
+	}
+	removedServerEntry = 1;
+	break;*/
+      }////end else   (found matching filepath in client's .manifest)
+      
+    }////end client while loop
+    if(removedServerEntry==0){
+      sprev=sptr;
+      sptr=sptr->next;
+    }
+  }/////end server while loop
+  //writes which files that server manifest has but client doesn't to remove in .Commit
+  while(servhead!=NULL){
+    writeCodeC(comfd, 'D', servhead->str, servhead->byte,servhead->num+1);
+    servhead = removeFirstNodeLL(servhead);
+  }
+  //writes which files that client manifest has but server doesn't to add in .Commit
+  while(clihead!=NULL){
+    writeCodeC(comfd, 'A', clihead->str, clihead->byte,clihead->num+1);
+    clihead = removeFirstNodeLL(clihead);
+  }
+  close(tempfd);
+  write(serverfd,"1",1);//Send ok to read .Commit file
+  sendFile(serverfd,path);
+  close(serverfd);
+  unlink("tempToaster.txt");
   return 1;
 }
 int history(char*);

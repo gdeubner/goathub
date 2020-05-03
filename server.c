@@ -17,6 +17,69 @@
 
 #define SA struct sockaddr
 
+int commit(int client, message* msg){
+  char* temp=malloc(sizeof(char)*2000);
+  memset(temp,'\0',2000);
+  memcpy(temp,msg->args[0],strlen(msg->args[0]));
+  strcat(temp,"/.Manifest");//Should <project>/.Manifest"
+  sendFile(client,temp);//Sends over current manifest
+  char* check=malloc(sizeof(char)*2);
+  memset(check,'\0',2);
+  read(client,check,1);
+  if(atoi(check)==0){
+    printf("Client manifest did not match with %s's current manifest\n",msg->args[0]);
+    free(check);
+    close(client);
+    free(temp);
+    free(msg->cmd);
+    free(msg->args[0]);
+    free(msg->args);
+    free(msg);
+    return 0;
+  }
+  memset(temp,'\0',2000);
+  strcat(temp,msg->args[0]);
+  strcat(temp,"Commit");//<Should hold <project>Commit
+  DIR* proj=opendir(temp);//See if a commit folder for current project exists
+  if(proj==NULL){
+    char* path=malloc(sizeof(char)*2000);
+    memset(path,'\0',2000);
+    strcat(path,"mkdir ");
+    strcat(path,temp);
+    system(path);
+    free(path);
+  }
+  closedir(proj);
+  strcat(temp,"/.Commit");
+  struct sockaddr_in addr; //Getting client's IP
+  socklen_t addr_size=sizeof(struct sockaddr_in);
+  int res=getpeername(client,(SA*)&addr,&addr_size);
+  char* clientIP=malloc(sizeof(char)*50);
+  memset(clientIP,'\0',50);
+  strcat(clientIP,inet_ntoa(addr.sin_addr));//Holds client's IP now
+  strcat(temp,clientIP);//holds <project>Commit/.Commit<Client IP>
+  int fd=open(temp,O_RDWR);
+  if(fd>0){//Gets rid of commit inside for new active one
+    remove(temp);
+  }
+  fd=open(temp,O_RDWR | O_CREAT,00666);
+  int len=readBytesNum(client);//Receiving new commit
+  char* buffer=malloc(sizeof(char)*(len+1));
+  memset(buffer,'\0',len+1);
+  read(client,buffer,len);
+  write(fd,buffer,strlen(buffer));
+  free(buffer);
+  close(fd);
+  close(client);
+  free(temp);
+  free(clientIP);
+  free(msg->cmd);
+  free(msg->args[0]);
+  free(msg->args);
+  free(msg);
+  return 1;
+}
+
 int upgradeS(int client, message *msg){
   DIR *proj = opendir(msg->args[0]); // attempts to open project name
   if(proj==NULL){ // sends error to client if project doesn't exist
@@ -340,6 +403,11 @@ int destroy(int client,message* msg){
   }
   strcat(temp,"archive");
   system(temp);
+  memset(temp,'\0',2000);
+  strcat(temp,copy);
+  strcat(temp,msg->args[0]);
+  strcat(temp,"Commit");
+  system(temp);
   write(client,"1",1);
   free(msg->cmd);
   free(msg->args[0]);
@@ -453,7 +521,7 @@ int interactWithClient(int fd){
   }else if(strcmp(msg->cmd, "upgrade")==0){
     upgradeS(fd, msg);
   }else if(strcmp(msg->cmd, "commit")==0){
-    //commit(fd, msg);
+    commit(fd, msg);
   }else if(strcmp(msg->cmd, "push")==0){
     //push(fd, msg);
   }else if(strcmp(msg->cmd, "create")==0){

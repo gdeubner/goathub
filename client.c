@@ -20,13 +20,12 @@ int upgrade(char *projectName){
   strcat(conflictPath, projectName);
   strcat(conflictPath, "/.Conflict");
   int confd = open(conflictPath, O_RDONLY);
-  if(confd<0){
+  if(confd>=0){
     printf("Warning: Conflicts exist between remote and local. Resolve conflicts and then update\n");
     close(confd);
     free(conflictPath);
     return 0;
   }
-  close(confd);
   char *updatePath = malloc(sizeof(char)*(strlen(projectName)+11));
   memset(updatePath, '\0', strlen(projectName)+13);
   strcat(updatePath, "./");
@@ -68,15 +67,83 @@ int upgrade(char *projectName){
   free(msg->filepaths[0]);
   free(msg->filepaths);
   free(msg);
+  printf("recieve start\n");
   msg = recieveMessage(serverfd, msg);
+  printf("recieved fin\n");
   if(strcmp(msg->cmd, "error")==0){
     printf(msg->args[0]);
     freeMSG(msg);
     close(serverfd);
+    close(upfd);
     return -1;
   }
-   
-  
+  wnode *ptr = NULL;
+  ptr = scanFile(upfd, ptr, "\n");
+  printLL(ptr);
+  wnode *prev = NULL;
+  char *temp = NULL;
+  int i = 0;
+  while(ptr!=NULL){
+    //copy/delete filezzzz
+    temp = strtok(ptr->str, " ");
+    if(strcmp(temp, "D")==0){ //delete file
+      temp = strtok(NULL, " ");
+      if(remove(temp)<0)
+	printf("Failed to remove file\n", temp);
+      i++;
+      printf("Deleted %s\n", temp);
+    }else if(strcmp(temp, "A")==0){ //add new file (with new folders)
+      //create new folderzzz
+      temp = strtok(NULL, " ");
+      int pos =2;
+      while(pos<strlen(ptr->str)){
+	if(temp[pos]=='/'){
+	  temp[pos] = '\0';
+	  DIR *dir = opendir(temp); 
+	  if(dir==NULL)
+	    mkdir(temp, S_IRWXU|S_IRWXG);
+	  else
+	    closedir(dir);
+	  temp[pos] = '/';
+	  pos++;
+	}else{
+	  pos++;
+	}
+      }	
+      int fd = open(temp, O_RDWR|O_CREAT, 00600);
+      if(fd<0)
+	printf("Failed to add %s\n", temp);
+      copyNFile(fd, serverfd, msg->filelens[i]);
+      close(fd);
+      i++;
+      printf("Added file %s\n", temp);
+    }else if(strcmp(temp, "M")==0){ //modify file (delete and recreate)
+      temp = strtok(NULL, " ");
+      if(remove(temp)<0)
+	printf("Failed to remove (M) file\n", temp);
+      int fd = open(temp, O_RDWR|O_CREAT, 00600);
+      if(fd<0)
+	printf("Failed to add (M) file %s\n", temp);
+      copyNFile(fd, serverfd, msg->filelens[i]);
+      close(fd);
+      i++;
+      printf("Edited %s\n", temp);
+    }
+    prev = ptr;
+    ptr = ptr->next;
+    free(prev->str);
+    free(prev);
+  }
+  remove(msg->filepaths[msg->numfiles-1]);
+  int manfd = open(msg->filepaths[msg->numfiles-1], O_RDWR|O_CREAT, 00600);
+  copyNFile(manfd, serverfd, msg->filelens[msg->numfiles-1]);
+  close(manfd);
+  close(upfd);
+  close(serverfd);
+  remove(updatePath);
+  free(updatePath);
+  printf("%s was upgraded\n", projectName);
+  //freeMSG(msg);
   return 0;
 }
 
@@ -729,7 +796,8 @@ int createC(char *projectName){
   //writes message to server fd
   int serverfd = buildClient();
   if(serverfd<0){
-    printf("Error: Unable to cnnect to server.\n");
+    printf("Error: Unable to connect to server.\n");
+    return -1;
   }
   message *msg = malloc(sizeof(message));
   msg->cmd = "create";
@@ -789,37 +857,85 @@ int configure(char* IP,char* port){
 
 int main(int argc, char** argv){
   
-  if(argc<2||argc>4){
-    printf("Error: Incorrect number of arguments\n");
+  if(argc<3){
+    printf("Error: Must give more arguments\n");
     return 0;
   }
   if(strcmp(argv[1], "configure")==0){
+    if(argc!=4){
+      printf("Error: configure must have 2 arguments.\n");
+      return 0;
+    }
     configure(argv[2], argv[3]);
   }else if(strcmp(argv[1], "checkout")==0){
+    if(argc!=3){
+      printf("Error: checkout must have 1 arguments.\n");
+      return 0;
+    }
     checkoutC(argv[2]);
   }else if(strcmp(argv[1], "update")==0){
+    if(argc!=3){
+      printf("Error: update must have 1 arguments.\n");
+      return 0;
+    }
     update(argv[2]);
   }else if(strcmp(argv[1], "upgrade")==0){
-    //configure(argv[2], argv[3]);
+    if(argc!=3){
+      printf("Error: upgrade must have 1 arguments.\n");
+      return 0;
+    }
+    upgrade(argv[2]);
   }else if(strcmp(argv[1], "commit")==0){
-    //configure(argv[2], argv[3]);
+    if(argc!=3){
+      printf("Error: commit must have 1 arguments.\n");
+      return 0;
+    }
+    commit(argv[2]);
   }else if(strcmp(argv[1], "push")==0){
-    //configure(argv[2], argv[3]);
+    if(argc!=3){
+      printf("Error: push must have 1 arguments.\n");
+      return 0;
+    }
+    //push(argv[2]);
   }else if(strcmp(argv[1], "create")==0){
+    if(argc!=3){
+      printf("Error: create must have 1 arguments.\n");
+      return 0;
+    }
     createC(argv[2]);
   }else if(strcmp(argv[1], "destroy")==0){
-    //destroy(argv[2]);
+    if(argc!=3){
+      printf("Error: destroy must have 1 arguments.\n");
+      return 0;
+    }
+    destroy(argv[2]);
   }else if(strcmp(argv[1], "add")==0){
+    if(argc!=4){
+      printf("Error: add must have 2 arguments.\n");
+      return 0;
+    }
     add(argv[2], argv[3]);
   }else if(strcmp(argv[1], "remove")==0){
+    if(argc!=4){
+      printf("Error: remove must have 2 arguments.\n");
+      return 0;
+    }
     removeF(argv[2], argv[3]);
   }else if(strcmp(argv[1], "currentversion")==0){
+    if(argc!=3){
+      printf("Error: currentversion must have 1 arguments.\n");
+      return 0;
+    }
     currentVersionC(argv[2]);
   }else if(strcmp(argv[1], "history")==0){
-    //history(argv[2]);
+    if(argc!=3){
+      printf("Error: history must have 1 arguments.\n");
+      return 0;
+    }
+    history(argv[2]);
   }else if(strcmp(argv[1], "rollback")==0){
     if(argc!=4){
-      printf("Error not enough arguments\n");
+      printf("Error: upgrade must have 2 arguments.\n");
       return 0;
     }
     rollbackC(argv[2],argv[3]);

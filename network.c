@@ -43,7 +43,7 @@ int buildClient(){
         break;
       }
       if(bytesRead<0){
-        printf("Error: Unable to read bytes from .configure\n");
+        printf("Error:[buildClient] Unable to read bytes from .configure\n");
         free(buffer);
 	close(configurefd);
         return -1;

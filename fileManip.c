@@ -36,12 +36,12 @@ int printFile(char *file){
   while(buffer==NULL&&mallocCount<4){
     buffer = (char*)malloc(sizeof(char)*(bytesToRead+1));
     if(buffer==NULL){
-      printf("Error: Unable to malloc. Attempt number: %d Errno: %d\n", mallocCount, errno);
+      printf("Error: [printFile] Unable to malloc. Attempt number: %d Errno: %d\n", mallocCount, errno);
       mallocCount++;
     }
   }
   if(mallocCount>=4){
-    printf("Fatal Error: Malloc was unsuccessful. Errno: %d\n", errno);
+    printf("Fatal Error: [printFile] Malloc was unsuccessful. Errno: %d\n", errno);
     return -1;
   }
   int totalBytesRead = 0; //all bytes read 
@@ -56,7 +56,7 @@ int printFile(char *file){
       if(bytesRead==0)
 	break;
       if(bytesRead<0){
-	printf("Fatal Error: Unable to read bytes from file. Errno: %d\n", errno);
+	printf("Fatal Error: [printFile] Unable to read bytes from file. Errno: %d\n", errno);
 	return -1;
       }
     }
@@ -102,7 +102,7 @@ int readBytesNum(int client){
 int findFile(char* parent, char *child){
   DIR *dir = opendir(parent); //reference to current directory 
   if(dir==NULL){
-    printf("Error: %s is not a valid directory name.\n", parent);
+    printf("Error:[findFile] %s is not a valid directory name.\n", parent);
     return-1;
   }
   struct dirent *de;
@@ -120,7 +120,7 @@ int findFile(char* parent, char *child){
 int findDir(char* parent, char *child){
   DIR *dir = opendir(parent); //reference to current directory 
   if(dir==NULL){
-    printf("Error: %s is not a valid directory name.\n", parent);
+    printf("Error:[findDir] %s is not a valid directory name.\n", parent);
     return-1;
   }
   struct dirent *de;
@@ -137,7 +137,7 @@ int findDir(char* parent, char *child){
 int strfile(char *file, char *str){ 
   int fd = open(file, O_RDWR);
   if(fd<0){
-    printf("Fatal Error: Unable to open the file.\n");
+    printf("Fatal Error:[strfile] Unable to open the file.\n");
     return -1;
   }
   struct stat st;  //might need to free???
@@ -187,7 +187,7 @@ int copyNFile(int ffd, int ifd, int n){  //figure out how to only copy n bytes**
       if(bytesRead==0)
 	break;
       if(bytesRead<0){
-	printf("Fatal Error: Unable to read bytes from file. Errno: %d\n", errno);
+	printf("Fatal Error:[copyNFile] Unable to read bytes from file. Errno: %d\n", errno);
 	return -1;
       }
     }
@@ -203,7 +203,7 @@ int copyNFile(int ffd, int ifd, int n){  //figure out how to only copy n bytes**
 	if(bytesWritten==0)
 	  break;
 	if(bytesWritten<0){
-	  printf("Fatal Error: Unable to write bytes to file. Errno: %d\n", errno);
+	  printf("Fatal Error:[copyNFile] Unable to write bytes to file. Errno: %d\n", errno);
 	  return -1;
 	}
       }
@@ -228,7 +228,7 @@ int copyFile(int ffd, int ifd){
       if(bytesRead==0)
 	break;
       if(bytesRead<0){
-	printf("Fatal Error: Unable to read bytes from file. Errno: %d\n", errno);
+	printf("Fatal Error:[copyFile] Unable to read bytes from file. Errno: %d\n", errno);
 	return -1;
       }
     }
@@ -243,7 +243,7 @@ int copyFile(int ffd, int ifd){
 	if(bytesWritten==0)
 	  break;
 	if(bytesWritten<0){
-	  printf("Fatal Error: Unable to write bytes to file. Errno: %d\n", errno);
+	  printf("Fatal Error:[copyFile] Unable to write bytes to file. Errno: %d\n", errno);
 	  return -1;
 	}
       }
@@ -265,7 +265,7 @@ char *readNFile(int fd, int n, char *buffer){
     if(bytesRead==0)
       break;
     if(bytesRead<0){
-      printf("Fatal Error: Unable to read bytes from file. Errno: %d\n", errno);
+      printf("Fatal Error:[readNFile] Unable to read bytes from file. Errno: %d\n", errno);
       free(buffer);
       return NULL;
     }
@@ -307,7 +307,7 @@ char *itoa(char *snum, int num){
 int sendFile(int client,char* name){
   int fd=open(name,O_RDONLY);
   if(fd<0){
-    printf("File does not exist\n");
+    printf("Error: File %s does not exist\n", name);
     write(client,"0",1);
     close(fd);
     return 0;
@@ -332,7 +332,7 @@ int sendFile(int client,char* name){
 	break;
       }
       if(bytesRead<0){
-	printf("Error: Unable to read bytes from File\n");
+	printf("Error:[sendFile] Unable to read bytes from File\n");
 	close(fd);
 	return 0;
       }
@@ -391,7 +391,7 @@ void receiveFile(int client,char* name){
   memset(buffer,'\0',2000);
   //read(client,buffer,2000);
   char* fileName=name;
-  printf("File is: %s\n",fileName);
+  //printf("File is: %s\n",fileName);
   int fd=open(fileName,O_RDWR);
   if(fd<0){
     fd=open(fileName,O_RDWR | O_CREAT, 00600);
@@ -414,14 +414,14 @@ void receiveFile(int client,char* name){
 	break;
       }
       if(bytesRead<0){
-	printf("Error: Unable to read bytes from File\n");
+	printf("Error:[recieveFile] Unable to read bytes from File\n");
 	close(fd);
 	exit(0);
       }
       write(fd,buffer,strlen(buffer));
     }
   }while(bytesRead!=0);
-  printf("File received\n");
+  printf("File %s received\n", name);
   close(fd);
   free(buffer);
   return;

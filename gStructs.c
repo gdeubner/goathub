@@ -261,7 +261,7 @@ wnode* scanFile(int fd, wnode* head, char *delims){
       if(bytesRead==0)
 	break;
       if(bytesRead<0){
-	printf("Fatal Error: Unable to read bytes from file. Errno: %d\n", errno);
+	printf("Fatal Error:[scanFile] Unable to read bytes from file. Errno: %d\n", errno);
        	return NULL;
       }
     }
@@ -319,7 +319,7 @@ wnode* scanFile(int fd, wnode* head, char *delims){
   free(buffer);
   close(fd);
   if(sizeOfFile==0)
-    printf("Warning: File is empty\n");
+    printf("Warning:[scanFile] File is empty\n");
   return head;
 }
 

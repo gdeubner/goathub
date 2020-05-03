@@ -415,50 +415,6 @@ int commit(char* project){
   }
   free(check);
   int len=readBytesNum(serverfd);
-  /*char* serverMan=malloc(sizeof(char)*(len+1));
-  memset(serverMan,'\0',len+1);
-  /*read(serverfd,serverMan,len);//serverMan holds .Manifest from server
-  memset(path,'\0',2000);
-  strcat(path,project);
-  strcat(path,"/.Manifest");//holds string: <project>/.Manifest
-  char* buffer=malloc(sizeof(char)*2001);
-  char* localMan=malloc(sizeof(char)*2001);
-  memset(localMan,'\0',2001);
-  int i=1;
-  int totalBytesRead=0;
-  int bytesToRead=2000;
-  int bytesRead=-1;
-  do{
-    memset(buffer,'\0',2001);
-    bytesRead=0;
-    while(bytesRead<=bytesToRead){
-      bytesRead=read(localManfd,localMan,bytesToRead);
-      totalBytesRead+=bytesRead;
-      if(bytesRead==0){
-	break;
-      }
-      if(bytesRead<0){
-	printf("ERROR:Unable to read bytes from File\n");
-	close(localManfd);
-	return 0;
-      }
-      if(totalBytesRead>=2000*i){
-	i++;
-	char* new = malloc(sizeof(char)*((2000*i)+1));
-	memset(new,'0',(2000*i)+1);
-	memcpy(new,localMan,strlen(localMan));
-	char* old=localMan;
-	localMan=new;
-	free(old);
-      }
-      strcat(localMan,buffer);
-    }
-  }while(bytesRead!=0);
-  close(localManfd);
-  free(buffer);
-  if(strcmp(localMan,serverMan)!=0){
-    printf("ERROR:Local and Server Manifest do not match, please update local project\n");
-    }*/
   memset(path,'\0',2000);
   strcat(path,project);
   strcat(path,"/.Commit"); //path should be <project>/.Commit
@@ -558,16 +514,6 @@ int commit(char* project){
 	  printf("[client] Error: Please synchronize with %s repository before commiting\n", project);
 	  return 0;
 	}
-	//remove server entry and set removed
-	/*if(sprev==NULL){ //first entry
-	  sptr = removeFirstNodeLL(sptr);
-	  servhead = sptr;
-	}else{ //not first entry
-	  sprev->next = removeNodeLL(sprev);
-	  sptr = sprev->next;
-	}
-	removedServerEntry = 1;
-	break;*/
       }////end else   (found matching filepath in client's .manifest)
       
     }////end client while loop
@@ -885,10 +831,7 @@ void printManifest(char* str){
       ptr++;
       i++;
     }
-    //int fileVer=atoi(temp);
-    //printf("[client] File is: %s ",temp);
     int fileVer=atoi(temp);
-    //printf("File is: %s ",temp);
     ptr++;
     i=0;
     memset(temp,'\0',2000);

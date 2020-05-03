@@ -28,6 +28,190 @@ int killserver(){
   return 0;
 }
 
+int push(char*);
+int push(char* project){
+  char* path=malloc(sizeof(char)*2000);
+  memset(path,'\0',2000);
+  strcat(path,project);
+  strcat(path,"/.Commit");
+  int fd=open(path,O_RDONLY);
+  if(fd<0){
+    printf("Error:Client does not have a commit file, please commit before pushing\n");
+    free(path);
+    close(fd);
+    return 0;
+  }
+  int serverfd=buildClient();
+  if(serverfd<0){
+    printf("Error:Cannot connect to server\n");
+    close(serverfd);
+    close(fd);
+    free(path);
+    return 0;
+  }
+  message* msg=malloc(sizeof(message));
+  msg->cmd="push";
+  msg->args=malloc(sizeof(char*));
+  msg->args[0]=project;
+  msg->numargs=1;
+  msg->numfiles=0;
+  sendMessage(serverfd,msg);
+  char* check=malloc(sizeof(char)*2);
+  memset(check,'\0',2);
+  read(serverfd,check,1);
+  if(atoi(check)==0){
+    printf("Error:Project Commit not found\n");
+    free(msg->args);
+    free(msg);
+    free(path);
+    free(check);
+    close(serverfd);
+    close(fd);
+  }
+  int len=readBytesNum(serverfd);
+  wnode* servhead;
+  wnode* clihead;
+  int tempfd = open("ToasterTemp.txt", O_RDWR|O_CREAT, 00600);
+  copyNFile(tempfd, serverfd, len);
+  servhead = scanFile(tempfd, servhead, " \n");
+  clihead = scanFile(fd, clihead, " \n");
+  //servhead = condenseLL(servhead);
+  //clihead = condenseLL(clihead);
+  wnode *sptr = servhead;
+  wnode *sprev = NULL;
+  int matchfound = 0;
+  while(sptr!=NULL && clihead!=NULL){
+    matchfound = 0;
+    wnode *cptr = clihead;
+    wnode *cprev = NULL;
+    while(cptr!=NULL){ 
+      if(strcmp(sptr->str, cptr->str)!=0){//see if nodes match, if not go to next one
+	cprev = cptr;
+	cptr = cptr->next;
+      }else{//if so, remove entry from both LLs
+	if(cprev==NULL){ //first entry
+	  cptr = removeFirstNodeLL(cptr);
+	  clihead = cptr;
+	}else{//not first entry
+	  cprev->next= removeNodeLL(cprev);
+	  cptr = cprev->next;
+	}
+        if(sprev==NULL){ //first entry
+	  sptr = removeFirstNodeLL(sptr);
+          servhead = sptr;
+        }else{ //not first entry
+          sprev->next = removeNodeLL(sprev);
+          sptr = sprev->next;
+	}
+	matchfound=1;
+	break;
+      }
+    }//End of inner while
+    if(matchfound==0){//Mismatch in .Commits
+      printf("Error:Local .Commit and server .Commit do not match, removing local .Commit\n");
+      msg->cmd="error";
+      sendMessage(serverfd,msg);
+      free(msg->args);
+      free(msg);
+      cleanLL(clihead);
+      cleanLL(servhead);
+      close(serverfd);
+      close(tempfd);
+      close(fd);
+      unlink("ToasterTemp.txt");
+      unlink(path);
+      return 0;
+    }
+  }
+  close(tempfd);
+  tempfd=open(path,O_RDONLY);//Reopens commit file on client
+  wnode* head=NULL;
+  head=scanFile(tempfd,head,"\n");
+  //printLL(head);
+  wnode*ptr=head;
+  int Files=0;
+  while(ptr!=NULL){
+    if(ptr->str[0]=='A'||ptr->str[0]=='M')
+      Files++;    
+    ptr=ptr->next;
+  }
+  free(msg->args);
+  free(msg);
+  msg = malloc(sizeof(message));
+  msg->cmd = "file transfer";
+  msg->numargs = 0;
+  msg->numfiles = Files;
+  printf("numFiles == %d\n", Files);
+  msg->dirs = malloc(sizeof(char)*Files);
+  msg->dirs[Files] = '\0';
+  msg->filepaths = malloc(sizeof(char*)*Files);
+  ptr=head;
+  wnode* prev=NULL;
+  char*temp=NULL;
+  int i=0;
+  while(ptr!=NULL){
+    printf("Start loop\n");
+    temp==NULL;
+    if(ptr->str[0]=='A' || ptr->str[0]=='M'){
+      printf("filepath: [%s]\n", ptr->str);
+      msg->dirs[i] = '0';
+      temp = strtok(ptr->str, " ");
+      printf("[%s]\n", temp);
+      temp = strtok(NULL, " ");
+      printf("[%s]\n", temp);
+      msg->filepaths[i] = malloc(sizeof(char)*(strlen(temp)+1));
+      memset(msg->filepaths[i], '\0', strlen(temp)+1);
+      strcpy(msg->filepaths[i], temp);
+      i++;
+      //maybe free stuff?
+    }
+    printf("start freeing\n");
+    prev = ptr; ptr = ptr->next;
+    if(temp==NULL)
+      //free(prev->str);
+    //free(prev);
+    prev = ptr; ptr = ptr->next; //free(prev->str); free(prev);
+    printf("end freeing\n");
+  }
+  sendMessage(serverfd, msg);
+  memset(check,'\0',2);
+  read(serverfd,check,1);
+  if(atoi(check)==0)
+    printf("Error:Push was not completed. Client's .Commit wil now be removed\n");
+  else
+    printf("Push completed.\n");
+  free(msg->dirs);
+  for(i = 0; i<Files; i++)
+    free(msg->filepaths[i]);
+  free(msg->filepaths);
+  free(msg->args);
+  free(msg);
+  close(tempfd);
+  remove(path);
+  //Delete own manifest and get server's manifest 
+  memset(path,'\0',2000);
+  strcat(path,project);
+  strcat(path,"/.Manifest");
+  remove(path);//Get rid of it
+  int manfd=open(path,O_RDWR|O_CREAT,00666);//Create new one
+  memset(check,'\0',2);
+  read(serverfd,check,1);
+  if(atoi(check)==0)
+    printf("Server manifest not obtained, please update after push\n");
+  int byte=readBytesNum(serverfd);
+  char* buf=malloc(sizeof(char)*(byte+1));
+  memset(buf,'\0',byte+1);
+  read(serverfd,buf,byte);
+  write(manfd,buf,byte);
+  free(buf);
+  close(manfd);
+  free(path);
+  close(serverfd);
+  free(check);
+  unlink("ToasterTemp.txt");
+  cleanLL(head);
+  return 1;
+}
 int upgrade(char *projectName){
   char *conflictPath = malloc(sizeof(char)*(strlen(projectName)+13));
   memset(conflictPath, '\0', strlen(projectName)+13);
@@ -41,7 +225,7 @@ int upgrade(char *projectName){
     free(conflictPath);
     return 0;
   }
-  char *updatePath = malloc(sizeof(char)*(strlen(projectName)+11));
+  char *updatePath = malloc(sizeof(char)*(strlen(projectName)+13));
   memset(updatePath, '\0', strlen(projectName)+13);
   strcat(updatePath, "./");
   strcat(updatePath, projectName);
@@ -154,7 +338,10 @@ int upgrade(char *projectName){
   close(manfd);
   close(upfd);
   close(serverfd);
-  remove(updatePath);
+  memset(updatePath,'\0',strlen(projectName)+13);
+  strcat(updatePath,projectName);
+  strcat(updatePath,"/.Update");
+  unlink(updatePath);//
   free(updatePath);
   printf("[client] %s was upgraded\n", projectName);
   //freeMSG(msg);
@@ -699,7 +886,9 @@ void printManifest(char* str){
       i++;
     }
     //int fileVer=atoi(temp);
-    printf("[client] File is: %s ",temp);
+    //printf("[client] File is: %s ",temp);
+    int fileVer=atoi(temp);
+    //printf("File is: %s ",temp);
     ptr++;
     i=0;
     memset(temp,'\0',2000);
@@ -708,9 +897,9 @@ void printManifest(char* str){
       ptr++;
       i++;
     }
-    int fileVer=atoi(temp);
+    //int fileVer=atoi(temp);
     ptr++;
-    printf("and its version is: %d\n",fileVer);
+    printf("File is, %s and its version is: %d\n",temp,fileVer);
     ptr+=41;//40 bytes file hash and new line char
   }
   free(temp);
@@ -1044,7 +1233,7 @@ int main(int argc, char** argv){
       printf("[client] Error: push must have 1 arguments.\n");
       return 0;
     }
-    //push(argv[2]);
+    push(argv[2]);
   }else if(strcmp(argv[1], "create")==0){
     if(argc!=3){
       printf("[client] Error: create must have 1 arguments.\n");

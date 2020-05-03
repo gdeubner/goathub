@@ -105,7 +105,7 @@ int readBytesNum(int client){
   memset(buffer,'\0',50);
   int ptr=0;
   char currentChar;
-  while(currentChar!=':'){
+  while((currentChar!=':')&&(currentChar!='\n')&&(currentChar!=' ')){
     read(client,buffer+ptr,1);
     currentChar=buffer[ptr];
     ptr++;

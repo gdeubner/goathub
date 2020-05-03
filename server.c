@@ -25,6 +25,522 @@ int killserverS(){
   exit(0);
 }
 
+int removeF(const char *project, char *file){
+  DIR *dirp = opendir(project);
+  if(dirp==NULL){
+    printf("Fatal Error: Project directory %s cannot be opened\n", project);
+    return -1;
+  }
+  closedir(dirp);
+  char *manPath = malloc(sizeof(char)*(strlen(project)+13));
+  memset(manPath, '\0', strlen(project)+13);
+  strcat(manPath, "./");
+  strcat(manPath, project);
+  strcat(manPath, "/.Manifest");
+  
+  char *filePath = malloc(sizeof(char)*(strlen(project)+strlen(file)+48));
+  memset(filePath, '\0', strlen(project)+strlen(file)+6);
+  //strcat(filePath, "./");
+  //strcat(filePath, project);
+  //strcat(filePath, "/");
+  strcat(filePath, file);
+  
+  int man = open(manPath, O_RDWR);
+  if(man<0){
+    printf("Fatal Error: Unable to open the %s/.Manifest file.\n", project);
+    return -1;
+  }
+  struct stat st;  //might need to free???
+  stat(manPath, &st);
+  int manSize = st.st_size;
+  
+  char *buffer = NULL;
+  char * ptr = NULL;
+  int filePos = 0;
+  int buffSize = 2000;
+  while(ptr==NULL && filePos<manSize){
+    buffer = readNFile(man, buffSize, buffer);
+    ptr = strstr(buffer, filePath);
+    if(ptr==NULL){
+      lseek(man, -(strlen(filePath)+10), SEEK_CUR);
+      if(filePos==0)
+  	filePos+=(strlen(filePath)+10);
+      filePos+= (buffSize-strlen(filePath)+10);
+    }else{
+      filePos+=(ptr-buffer);
+    }
+  }
+  if(ptr==NULL){
+    printf("Warning: File %s was not found in .Manifest. Could not remove.\n",filePath);
+    free(buffer);
+    return -1;
+  }
+  
+  int end = filePos;
+  end +=strlen(filePath)+42;
+  while(buffer[filePos-1]!='\n'){
+    filePos--;
+  }
+  lseek(man, filePos, SEEK_SET);
+  char * temp = malloc(sizeof(char)*(strlen(manPath)+8));
+  memset(temp, '\0', (strlen(manPath)+6));
+  strcat(temp, manPath);
+  strcat(temp, ".hcz");
+  close(man);
+  if(rename(manPath, temp)==-1){
+    printf("Fatal error: Unable to remove file from .Manifest.\n");
+    free(temp); free(buffer); free(manPath);
+    return -1;
+  }
+  int newman = open(manPath, O_RDWR|O_CREAT, 00600);
+  int oldman = open(temp, O_RDWR);
+  //copy up to pos into newman
+  copyNFile(newman, oldman, filePos);
+  lseek(oldman, end, SEEK_SET);
+  copyFile(newman, oldman);
+  free(buffer); free(manPath);
+  close(newman);
+  close(oldman); // need to delete temp file
+  remove(temp);
+  free(temp);
+  printf("Removed %s from %s.\n", file, project);
+  return 0;
+}
+int modify(char* project, char* file){
+  char*temp=malloc(sizeof(char)*2000);
+  memset(temp,'\0',2000);
+  strcat(temp,project);
+  strcat(temp,"/.Manifest");
+  int offset=strfile(temp,file);//Finds file in manifest
+  int tempfd=open(temp,O_RDONLY);
+  if(offset>8){//If file is not first entry on manifest
+    lseek(tempfd,(offset-8),SEEK_SET);
+  }//Otherwise it is, so start at beginning
+  char* currentChar=malloc(sizeof(char)*2);
+  memset(currentChar,'\0',2);
+  while(currentChar[0]!='\n'){
+    read(tempfd,currentChar,1);
+  }
+  free(currentChar);
+  int version=readBytesNum(tempfd);
+  free(temp);
+  close(tempfd);
+  version++;
+  if(removeF(project,file)==-1){//Get rid of current entry so we can add again with upgraded version
+    return -1;
+  }
+  return version;
+}
+int modifyAdd(char* project,char* file,int version){//Works exactly like add but inserts version given
+  DIR *dirp = opendir(project);
+  if(dirp==NULL){
+    printf("Error: Project directory %s cannot be opened\n", project);
+    return -1;
+  }
+  closedir(dirp);
+  char *manPath = malloc(sizeof(char)*(strlen(project)+13));
+  memset(manPath, '\0', strlen(project)+13);
+  strcat(manPath, "./");
+  strcat(manPath, project);
+  strcat(manPath, "/.Manifest");
+  if(strfile(manPath, file)>=0){
+    free(manPath);
+    printf("Warning: File %s already exists in the .Manifest and cannot be added again.\n", file);
+    return -1;
+  }
+  char *path = malloc(sizeof(char)*(strlen(project)+strlen(file)+2));
+  memset(path, '\0', (strlen(project)+strlen(file)+2));
+  //strcat(path, project);
+  //strcat(path, "/");
+  strcat(path, file);
+  int fd = open(path, O_RDWR);
+  if(fd<0){
+    printf("Error: Unable to find file %s in %s.\n", file, project);
+    free(path);
+    free(manPath);
+    return -1;
+  }
+  close(fd);
+  int man = open(manPath, O_RDWR);
+  free(manPath);
+  if(man<0){
+    printf("Error: Unable to find the %s/.Manifest file.\n", project);
+    free(path);
+    return -1;
+  }
+  lseek(man,0, SEEK_END);  
+  char *hash = NULL;
+  hash = hashFile(path, hash);
+  if(hash==NULL){
+    printf("Error: Invalid file path. Unable to add file %s\n", file);
+    return -1;
+  }
+  char *buffer = malloc(sizeof(char)*(strlen(project)+strlen(file)+48));
+  memset(buffer, '\0', strlen(project)+strlen(file)+48);
+  char* v=itoa(v,version);
+  strcat(buffer,v);
+  strcat(buffer," ");
+  //strcat(buffer, "1 ./");//
+  strcat(buffer, path);
+  strcat(buffer, " ");
+  strcat(buffer, hash);
+  strcat(buffer, "\n");
+  write(man, buffer, strlen(buffer));
+  free(buffer);
+  free(path);
+  free(hash);
+  close(man);
+  printf("Added %s to %s\n", file, project);
+  return 0;
+}
+
+int add(char *project, char *file){
+  DIR *dirp = opendir(project);
+  if(dirp==NULL){
+    printf("Error: Project directory %s cannot be opened\n", project);
+    return -1;
+  }
+  closedir(dirp);
+  char *manPath = malloc(sizeof(char)*(strlen(project)+13));
+  memset(manPath, '\0', strlen(project)+13);
+  strcat(manPath, "./");
+  strcat(manPath, project);
+  strcat(manPath, "/.Manifest");
+  if(strfile(manPath, file)>=0){
+    free(manPath);
+    printf("Warning: File %s already exists in the .Manifest and cannot be added again.\n", file);
+    return -1;
+  }
+  char *path = malloc(sizeof(char)*(strlen(project)+strlen(file)+3));
+  memset(path, '\0', (strlen(project)+strlen(file)+3));
+  //strcat(path, project);
+  //strcat(path, "/");
+  strcat(path, file);
+  /*int fd = open(path, O_RDWR);
+  if(fd<0){
+    printf("Error: Unable to find file %s in %s.\n", file, project);
+    free(path);
+    free(manPath);
+    return -1;
+  }
+  close(fd);*/
+  int man = open(manPath, O_RDWR);
+  free(manPath);
+  if(man<0){
+    printf("Error: Unable to find the %s/.Manifest file.\n", project);
+    free(path);
+    return -1;
+  }
+  lseek(man,0, SEEK_END);  
+  int fd = open(path, O_RDWR);
+  if(fd<0){
+    printf("Error: Unable to find file %s in %s.\n", file, project);
+    free(path);
+    free(manPath);
+    return -1;
+  }
+  close(fd);
+  char *hash = NULL;
+  hash = hashFile(path, hash);
+  if(hash==NULL){
+    printf("Error: Invalid file path. Unable to add file %s\n", file);
+    return -1;
+  }
+  char *buffer = malloc(sizeof(char)*(strlen(project)+strlen(file)+48));
+  memset(buffer, '\0', strlen(project)+strlen(file)+48);
+  strcat(buffer, "1 ");
+  strcat(buffer, path);
+  strcat(buffer, " ");
+  strcat(buffer, hash);
+  strcat(buffer, "\n");
+  write(man, buffer, strlen(buffer));
+  free(buffer);
+  free(path);
+  free(hash);
+  close(man);
+  printf("Added %s to %s\n", file, project);
+  return 0;
+}
+
+
+int push(int client,message* msg){
+  char* temp1=malloc(sizeof(char)*2000);
+  char* project=malloc(sizeof(char)*(strlen(msg->args[0])+1));
+  memset(project,'\0',strlen(msg->args[0])+1);
+  memcpy(project,msg->args[0],strlen(msg->args[0]));
+  memset(temp1,'\0',2000);
+  memcpy(temp1,msg->args[0],strlen(msg->args[0]));
+  strcat(temp1,"Commit/");//Should <project>Commit
+  strcat(temp1,".Commit");
+  struct sockaddr_in addr; //Getting client's IP
+  socklen_t addr_size=sizeof(struct sockaddr_in);
+  int res=getpeername(client,(SA*)&addr,&addr_size);
+  char* clientIP=malloc(sizeof(char)*50);
+  memset(clientIP,'\0',50);
+  strcat(clientIP,inet_ntoa(addr.sin_addr));//Holds client's IP now
+  strcat(temp1,clientIP);//holds <project>Commit/.Commit<Client IP>
+  sendFile(client,temp1);//Sends over current manifest
+  free(clientIP);
+  free(msg->cmd);
+  free(msg->args[0]);
+  free(msg->args);
+  free(msg);
+  msg=recieveMessage(client,msg);
+  if(strcmp(msg->cmd,"error")==0){
+    printf("Commits did not match\n");
+    close(client);
+    free(msg->cmd);
+    free(msg->args[0]);
+    free(msg->args);
+    free(msg);
+    return 0;
+  }
+  char* man1=malloc(sizeof(char)*2000);
+  memset(man1,'\0',2000);
+  strcat(man1,project);
+  strcat(man1,"/.Manifest");
+  compressProject(project);
+  int tempfd=open(man1,O_RDWR);//Need to get version of current project for later
+  int version=readBytesNum(tempfd);
+  char* curV=itoa(curV,version);//For use in decompressProject if failure occurs
+  close(tempfd);
+  tempfd=open(temp1,O_RDWR);
+  printf("%s version's before push is %d\n",project,version);
+  wnode *ptr = NULL;
+  ptr = scanFile(tempfd, ptr, "\n");
+  printLL(ptr);
+  wnode *prev = NULL;
+  char *temp = NULL;
+  int i = 0;
+  while(ptr!=NULL){
+    //copy/delete filezzzz
+    temp = strtok(ptr->str, " ");
+    if(strcmp(temp, "D")==0){ //delete file
+      temp = strtok(NULL, " ");
+      if(remove(temp)<0){
+	write(client,"0",1);
+	memset(temp1,'\0',2000);
+	close(client);
+	char* copy="rm -r ";
+	strcat(temp1,copy);
+	strcat(temp1,project);
+	system(temp1);
+	free(temp1);
+	printf("Push failed\n", temp);
+	decompressProject(project,curV);
+	freeMSG(msg);
+	free(project);
+	cleanLL(ptr);
+	close(tempfd);
+	return 0;
+      }
+      int r=removeF(project,temp);
+      if(r==-1){
+	write(client,"0",1);
+	close(client);
+	memset(temp1,'\0',2000);
+	char* copy="rm -r ";
+	strcat(temp1,copy);
+	strcat(temp1,project);
+	system(temp1);
+	free(temp1);
+	printf("Push failed\n", temp);
+	decompressProject(project,curV);
+	close(client);
+	freeMSG(msg);
+	free(project);
+	cleanLL(ptr);
+	close(tempfd);
+	return 0;
+      }
+      i++;
+      printf("Deleted %s\n", temp);
+    }else if(strcmp(temp, "A")==0){ //add new file (with new folders)
+      //create new folderzzz
+      temp = strtok(NULL, " ");
+      int pos =2;
+      while(pos<strlen(ptr->str)){
+	if(temp[pos]=='/'){
+	  temp[pos] = '\0';
+	  DIR *dir = opendir(temp); 
+	  if(dir==NULL)
+	    mkdir(temp, S_IRWXU|S_IRWXG);
+	  else
+	    closedir(dir);
+	  temp[pos] = '/';
+	  pos++;
+	}else{
+	  pos++;
+	}
+      }	
+      int fd = open(temp, O_RDWR|O_CREAT, 00600);
+      if(fd<0){
+	write(client,"0",1);
+	memset(temp1,'\0',2000);
+	close(client);
+	close(fd);
+	char* copy="rm -r ";
+	strcat(temp1,copy);
+	strcat(temp1,project);
+	system(temp1);
+	free(temp1);
+	printf("Push failed\n", temp);
+	decompressProject(project,curV);
+	freeMSG(msg);
+	free(project);
+	cleanLL(ptr);
+	close(tempfd);
+	return 0;
+      }
+      copyNFile(fd, client, msg->filelens[i]);
+      close(fd);
+      int a=add(project,temp);
+      if(a==-1){
+	write(client,"0",1);
+	memset(temp1,'\0',2000);
+	close(client);
+	char* copy="rm -r ";
+	strcat(temp1,copy);
+	strcat(temp1,project);
+	system(temp1);
+	free(temp1);
+	printf("Push failed\n");
+	decompressProject(project,curV);
+	freeMSG(msg);
+	free(project);
+	cleanLL(ptr);
+	close(tempfd);
+	return 0;
+      }
+      i++;
+      printf("Added file %s\n", temp);
+    }else if(strcmp(temp, "M")==0){ //modify file (delete and recreate)
+      temp = strtok(NULL, " ");
+      int v;
+      v=modify(project,temp);
+      if(v<0){
+	write(client,"0",1);
+	memset(temp1,'\0',2000);
+	close(client);
+	char* copy="rm -r ";
+	strcat(temp1,copy);
+	strcat(temp1,project);
+	system(temp1);
+	free(temp1);
+	printf("Push failed\n");
+	decompressProject(project,curV);
+	freeMSG(msg);
+	free(project);
+	cleanLL(ptr);
+	close(tempfd);
+	return 0;
+      }
+      int fd = open(temp, O_RDWR|O_CREAT, 00600);
+      if(fd<0){
+	write(client,"0",1);
+	memset(temp1,'\0',2000);
+	close(client);
+	close(fd);
+	char* copy="rm -r ";
+	strcat(temp1,copy);
+	strcat(temp1,project);
+	system(temp1);
+	free(temp1);
+	printf("Push failed\n");
+	decompressProject(project,curV);
+	freeMSG(msg);
+	free(project);
+	cleanLL(ptr);
+	close(tempfd);
+	return 0;
+      }
+      copyNFile(fd, client, msg->filelens[i]);
+      close(fd);
+      i++;
+      int ma=modifyAdd(project,temp,v);
+      if(ma==-1){
+	write(client,"0",1);
+	memset(temp1,'\0',2000);
+	close(client);
+	char* copy="rm -r ";
+	strcat(temp1,copy);
+	strcat(temp1,project);
+	system(temp1);
+	free(temp1);
+	printf("Push failed\n");
+	decompressProject(project,curV);
+	freeMSG(msg);
+	free(project);
+	cleanLL(ptr);
+	close(tempfd);
+	return 0;
+      };
+      printf("Edited %s\n", temp);
+    }
+    prev = ptr;
+    ptr = ptr->next;
+    free(prev->str);
+    free(prev);
+  }
+  cleanLL(ptr);
+  close(tempfd);
+  //Read current version of manifest
+  char* mani=malloc(sizeof(char)*2000);
+  memset(mani,'\0',2000);
+  strcat(mani,project);
+  strcat(mani,"/.Manifest");
+  char* mani2=malloc(sizeof(char)*(strlen(mani)+4));
+  memset(mani2,'\0',strlen(mani)+4);
+  strcat(mani2,mani);
+  strcat(mani2,"New");//Holds <project>/.ManifestNew
+  int oldMan=open(mani,O_RDONLY);
+  int oldVer=readBytesNum(oldMan);
+  oldVer++;
+  char* newVer=itoa(newVer,oldVer);
+  int newMan=open(mani2,O_RDWR|O_CREAT,00666);
+  write(newMan,newVer,strlen(newVer));
+  write(newMan,"\n",1);
+  copyFile(newMan,oldMan);//Should only copy past version number in old manifest
+  close(oldMan);
+  close(newMan);
+  remove(mani);//Gets rid of current manifest
+  char* last=malloc(sizeof(char)*2000);
+  memset(last,'\0',2000);
+  char* copy="mv ";
+  strcat(last,copy);
+  strcat(last,mani2);
+  strcat(last," ");
+  strcat(last,mani);
+  system(last);//Renames .ManifestNew to .Manifest
+  free(mani2);
+  //free(mani);
+  printf("Push on %s, successful\n",project);//Update log time
+  memset(last,'\0',2000);
+  strcat(last,project);
+  strcat(last,"log");
+  int log=open(last,O_RDWR);//Assumes log already exists, which it should
+  lseek(log,0,SEEK_END);
+  write(log,"Push ",5);
+  write(log,newVer,strlen(newVer));
+  write(log,"\n",1);
+  int newtempfd=open(temp1,O_RDWR);//Get server's commit and append project log with it
+  copyFile(log,newtempfd);
+  write(log,"\n",1);
+  close(log);
+  remove(temp1);//Removes server's copy of .Commit
+  close(newtempfd);
+  free(newVer);
+  free(temp1);
+  write(client,"1",1);
+  memset(mani,'\0',2000);
+  strcat(mani,project);
+  strcat(mani,"/.Manifest");
+  sendFile(client,mani);//Send new manifest over to client
+  free(project);
+  free(mani);
+  close(client);
+  return 1;
+}
 int commit(int client, message* msg){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
@@ -71,6 +587,7 @@ int commit(int client, message* msg){
   if(fd>0){//Gets rid of commit inside for new active one
     remove(temp);
   }
+  close(fd);
   fd=open(temp,O_RDWR | O_CREAT,00666);
   int len=readBytesNum(client);//Receiving new commit
   char* buffer=malloc(sizeof(char)*(len+1));
@@ -102,6 +619,7 @@ int upgradeS(int client, message *msg){
     sendMessage(client, msg);
     free(msg->args);
     free(msg);
+    close(client);
     return -1;
   }
   closedir(proj);
@@ -113,12 +631,13 @@ int upgradeS(int client, message *msg){
   int upfd = open(updatePath, O_RDWR|O_CREAT, 00600);
   if(upfd<0){
     printf("[server] Fatal error:[upgradeS] Unable to open .Update file.\n");
+    close(client);
     return -1;
   }
   copyNFile(upfd, client, msg->filelens[0]);
   wnode *head = NULL;
   head = scanFile(upfd, head, "\n");
-  printLL(head);////temporary
+  //printLL(head);////temporary
   wnode *ptr = head;
   int numFiles = 0;
   while(ptr!=NULL){
@@ -202,6 +721,7 @@ int updateS(int client, message *msg){
     sendMessage(client, msg);
     free(msg->args);
     free(msg);
+    close(client);
     return -1;
   }
   closedir(proj);
@@ -223,6 +743,7 @@ int updateS(int client, message *msg){
   free(msg->args[0]);
   free(msg->args);
   free(msg);
+  close(client);
   return 0;
 }
 
@@ -238,6 +759,7 @@ int history(int client,message* msg){
   free(msg->args);
   free(msg);
   free(temp);
+  close(client);
   return 1;
 }
 
@@ -254,6 +776,7 @@ int currentVersion(int client,message* msg){
   free(msg->args);
   free(msg);
   free(temp);
+  close(client);
   return 1;
 }
 
@@ -274,6 +797,7 @@ int rollback(int client,message* msg){
     free(msg);
     free(vcheck);
     write(client,"0",1);
+    close(client);
     return 0;
   }
   memset(vcheck,'\0',2000);
@@ -284,7 +808,7 @@ int rollback(int client,message* msg){
     c=read(fd,vcheck+ptr,1);
   }while((vcheck[ptr]!='\n')&&(c!=0));
   vcheck[ptr]='\0';
-  if(atoi(vcheck)<=v){
+  if(atoi(vcheck)<=v||v==0){
     free(msg->cmd);
     free(msg->args[0]);
     free(msg->args);
@@ -292,6 +816,7 @@ int rollback(int client,message* msg){
     free(vcheck);
     printf("[server] Invalid version to be rolled back to\n");
     write(client,"2",1);
+    close(client);
     return 2;
   }
   /*int dCheck=destroy(project);
@@ -316,19 +841,30 @@ int rollback(int client,message* msg){
     strcat(temp,temp2);
     printf("[server] Version to remove is %s\n",temp2);
   }while(remove(temp)==0);
-  memset(temp,'\0',2000);
+  /*memset(temp,'\0',2000);
   strcat(temp,project);
   strcat(temp,"archive/");
   strcat(temp,project);
-  strcat(temp,msg->args[1]);
+  strcat(temp,msg->args[1]);*/
   decompressProject(project,msg->args[1]);
-  remove(temp);
+  //remove(temp);
+  memset(temp,'\0',2000);
+  strcat(temp,project);
+  strcat(temp,"log");
+  close(fd);
+  fd=open(temp,O_RDWR);//Assumes there is a log file
+  lseek(fd,0,SEEK_END);
+  write(fd,"Rollback to version ",20);
+  write(fd,msg->args[1],strlen(msg->args[1]));
+  write(fd,"\n",1);
+  close(fd);
   free(temp);
   free(msg->cmd);
   free(msg->args[0]);
   free(msg->args);
   free(msg);
   write(client,"1",1);
+  close(client);
   return 1;
 }
 
@@ -345,6 +881,7 @@ int checkout(int client, message *msg){
     sendMessage(client, msg);
     free(msg->args);
     free(msg);
+    close(client);
     return -1;
   }
   closedir(proj);
@@ -392,13 +929,14 @@ int checkout(int client, message *msg){
   free(msg->dirs);
   free(msg->filepaths);
   free(project);
+  close(client);
   return 1;
 }
 
 int destroy(int client,message* msg){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
-  char* copy="rm -r ";
+  char* copy="rm -r -f ";
   strcat(temp,copy);
   strcat(temp,msg->args[0]);
   int check=system(temp);
@@ -408,6 +946,7 @@ int destroy(int client,message* msg){
     free(msg->args[0]);
     free(msg->args);
     free(msg);
+    close(client);
     return 0;
   }
   strcat(temp,"archive");
@@ -417,7 +956,14 @@ int destroy(int client,message* msg){
   strcat(temp,msg->args[0]);
   strcat(temp,"Commit");
   system(temp);
+  memset(temp,'\0',2000);
+  strcat(temp,copy);
+  strcat(temp,msg->args[0]);
+  strcat(temp,"log");
+  system(temp);
   write(client,"1",1);
+  close(client);
+  free(temp);
   free(msg->cmd);
   free(msg->args[0]);
   free(msg->args);
@@ -425,49 +971,7 @@ int destroy(int client,message* msg){
   printf("[server] Project deleted\n");
   return 0;
 }
-//Will need to look at again after commit is finished so we can destroy pending commits
-//Recursively removes project directory, files and sub directories, returns 0 on success 
-//Changed to new function for system call implementation instead
-/*int destroy(char* path){
-  DIR *dir=opendir(path);
-  int dirLen=strlen(path);
-  int check=-1;
-  if(dir){
-    struct dirent *ptr;
-    check=0;
-    while(!check&&(ptr=readdir(dir))){
-	int check2=-1;
-	char* curFile;
-	int len;
-	if((strcmp(ptr->d_name,".")==0)||(strcmp(ptr->d_name,"..")==0)){
-	  continue;
-	}
-	len=dirLen+strlen(ptr->d_name)+2;
-	curFile=malloc(sizeof(char)*len);
-	if(curFile){
-	  struct stat buf;
-	  snprintf(curFile,len,"%s/%s",path,ptr->d_name);
-	  if(!stat(curFile,&buf)){
-	    if(S_ISDIR(buf.st_mode)){
-	      check2=destroy(curFile);
-	    } else{
-	      check2=unlink(curFile);
-	    }
-	  }
-	  free(curFile);
-	}
-	check=check2;
-    }
-      closedir(dir);
-  }
-  if(!check){
-    check=rmdir(path);
-    }
-  return check;
-}*/
-
-int createS(int fd, message *msg){
-  int clientfd = fd; 
+int createS(int clientfd, message *msg){
   char *projectName = msg->args[0];
   if(mkdir(projectName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)<0){
     if(errno==EEXIST){
@@ -484,6 +988,7 @@ int createS(int fd, message *msg){
     }
     //send message to client, saying that project already exists
     printf("[server] Error: Unable to create project %s\n", projectName);
+    close(clientfd);
     return -1;
   }
   printf("[server] Succefully created project %s\n", projectName);
@@ -493,12 +998,21 @@ int createS(int fd, message *msg){
   memcpy(manFile+2, projectName, size);
   memcpy(manFile + 2 + size, "/.Manifest\0", 11);
   int mfd = open(manFile, O_RDWR|O_CREAT, 00600);//creates  server .Manifest
-  if(fd<0){
+  if(mfd<0){
     printf("[server] Fatal Error: Unable to create .Manifest file for project %s.\n", projectName);
     //alert client
+    close(clientfd);
     return -1;
   }
   write(mfd, "1\n", 2);
+  char* temp=malloc(sizeof(char)*2000); //Make log file
+  memset(temp,'\0',2000);
+  strcat(temp,projectName);
+  strcat(temp,"log");
+  int log=open(temp,O_RDWR|O_CREAT,00666);
+  write(log,"Push 1\nCreation\n",16);
+  free(temp);
+  close(log);
   //send client .Manifest file
   msg->cmd = "fileTransfer";
   msg->numargs = 0;
@@ -515,7 +1029,7 @@ int createS(int fd, message *msg){
   free(msg);
   free(manFile);
   close(mfd);
-  //close(clientfd);  // tremporary
+  close(clientfd);  // tremporary
   return 0;
 }
 
@@ -532,7 +1046,7 @@ int interactWithClient(int fd){
   }else if(strcmp(msg->cmd, "commit")==0){
     commit(fd, msg);
   }else if(strcmp(msg->cmd, "push")==0){
-    //push(fd, msg);
+    push(fd, msg);
   }else if(strcmp(msg->cmd, "create")==0){
     createS(fd, msg);
   }else if(strcmp(msg->cmd, "destroy")==0){

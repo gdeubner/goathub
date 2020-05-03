@@ -6,7 +6,7 @@ WTF: client.c gStructs.o fileManip.o network.o
 	gcc -g client.c gStructs.o fileManip.o network.o -o WTF -lssl -lcrypto
 
 WTFserver: server.c gStructs.o fileManip.o network.o
-	gcc -g server.c gStructs.o fileManip.o network.o -o WTFserver -lssl -lcrypto
+	gcc -g server.c gStructs.o fileManip.o network.o -o WTFserver -lssl -lcrypto -lpthread
 
 WTFtest: test.c
 	gcc test.c -o WTFtest

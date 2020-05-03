@@ -96,10 +96,87 @@ int upgradeS(int client, message *msg){
     return -1;
   }
   closedir(proj);
-  wnode *hdead = NULL;
+  char *updatePath = malloc(sizeof(char)*(strlen(msg->args[0])+11));
+  memset(updatePath, '\0', strlen(msg->args[0])+13);
+  strcat(updatePath, "./");
+  strcat(updatePath, msg->args[0]);
+  strcat(updatePath, "/.Update");
+  int upfd = open(updatePath, O_RDWR|O_CREAT, 00600);
+  if(upfd<0){
+    printf("Fatal error:[upgradeS] Unable to open .Update file.\n");
+    return -1;
+  }
+  copyNFile(upfd, client, msg->filelens[0]);
+  wnode *head = NULL;
+  head = scanFile(upfd, head, "\n");
+  printLL(head);////temporary
+  wnode *ptr = head;
+  int numFiles = 0;
+  while(ptr!=NULL){
+    if(ptr->str[0]=='A'||ptr->str[0]=='M')
+      numFiles++;    
+    ptr=ptr->next;
+  }
+  numFiles++;
+  char *manPath = malloc(sizeof(char)*(strlen(msg->args[0])+13));
+  memset(manPath, '\0', strlen(msg->args[0])+13);
+  strcat(manPath, "./");
+  strcat(manPath, msg->args[0]);
+  strcat(manPath, "/.Manifest");
   
-  
-  
+  freeMSG(msg);
+  msg = malloc(sizeof(message));
+  msg->cmd = "file transfer";
+  msg->numargs = 0;
+  msg->numfiles = numFiles;
+  printf("numFiles == %d\n", numFiles);
+  msg->dirs = malloc(sizeof(char)*numFiles);
+  msg->dirs[numFiles] = '\0';
+  msg->filepaths = malloc(sizeof(char*)*numFiles);
+  msg->filepaths[numFiles-1] = manPath;
+  msg->dirs[numFiles-1] = '0';
+
+  ptr = head;
+  wnode *prev = NULL;
+  char *temp = NULL;
+  int i = 0;
+  while(ptr!=NULL){
+    printf("Start loop\n");
+    temp==NULL;
+    if(ptr->str[0]=='A' || ptr->str[0]=='M'){
+      printf("filepath: [%s]\n", ptr->str);
+      msg->dirs[i] = '0';
+      temp = strtok(ptr->str, " ");
+      printf("[%s]\n", temp);
+      temp = strtok(NULL, " ");
+      printf("[%s]\n", temp);
+      msg->filepaths[i] = malloc(sizeof(char)*(strlen(temp)+1));
+      memset(msg->filepaths[i], '\0', strlen(temp)+1);
+      strcpy(msg->filepaths[i], temp);
+      i++;
+      //maybe free stuff?
+    }
+    printf("start freeing\n");
+    prev = ptr; ptr = ptr->next;
+    if(temp==NULL)
+      //free(prev->str);
+    //free(prev);
+    prev = ptr; ptr = ptr->next; //free(prev->str); free(prev);
+    printf("end freeing\n");
+  }
+  sendMessage(client, msg);
+  printf("Updated files sent to client.\n");
+  free(msg->dirs);
+  for(i = 0; i<numFiles; i++)
+    free(msg->filepaths[i]);
+  free(msg->filepaths);
+  free(msg->args);
+  free(msg);
+  close(upfd);
+  remove(updatePath);
+  free(updatePath);
+  close(client);
+  cleanLL(head);
   return 0;
 }
 
@@ -442,7 +519,7 @@ int interactWithClient(int fd){
   }else if(strcmp(msg->cmd, "update")==0){
     updateS(fd, msg);
   }else if(strcmp(msg->cmd, "upgrade")==0){
-    //upgrade(fd, msg);
+    upgradeS(fd, msg);
   }else if(strcmp(msg->cmd, "commit")==0){
     commit(fd, msg);
   }else if(strcmp(msg->cmd, "push")==0){

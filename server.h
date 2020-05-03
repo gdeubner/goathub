@@ -1,7 +1,7 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-
+int upgradeS(int client, message *msg);
 int rollback(int,message*);
 int upgradeS(int client, message *msg);
 int updateS(int client, message *msg);

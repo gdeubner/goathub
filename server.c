@@ -506,7 +506,7 @@ int push(int client,message* msg){
   system(last);//Renames .ManifestNew to .Manifest
   free(mani2);
   //free(mani);
-  printf("[server] Successful ush on %s\n",project);//Update log time
+  printf("[server] Successful push on %s\n",project);//Update log time
   memset(last,'\0',2000);
   strcat(last,project);
   strcat(last,"log");
@@ -612,7 +612,7 @@ int upgradeS(int client, message *msg){
     msg->cmd = "error";
     msg->numargs = 1;
     free(msg->args[0]);
-    msg->args[0] = "[server] Error: Project does not exist on server.\n";
+    msg->args[0] = "[client] Error: Project does not exist on server.\n";
     msg->numfiles = 0;
     sendMessage(client, msg);
     free(msg->args);
@@ -649,13 +649,36 @@ int upgradeS(int client, message *msg){
   strcat(manPath, "./");
   strcat(manPath, msg->args[0]);
   strcat(manPath, "/.Manifest");
+  int manfd = open(manPath, O_RDONLY);
+  char *buff = malloc(sizeof(char)*10);
+  memset(buff, '\0', 10);
+  read(manfd, buff, 5);
+  close(manfd);
+  char *nbuff = malloc(sizeof(char)*10);
+  nbuff = strtok(buff, "\n");
+  if(strcmp(nbuff, msg->args[1])!=0){
+    printf("[server] Warning: client tried to push with old .update file.\n", msg->args[0]);
+    freeMSG(msg);
+    msg = malloc(sizeof(message));
+    msg->cmd = "error";
+    msg->numargs = 1;
+    msg->args = malloc(sizeof(char*));
+    msg->args[0] = "[client] Warning: Project was pushed to since last update. Please update again.\n";
+    msg->numfiles = 0;
+    sendMessage(client, msg);
+    free(msg->args);
+    free(msg);
+    close(client);
+    return -1;
+  }
   
+  //free(buff);
   freeMSG(msg);
   msg = malloc(sizeof(message));
   msg->cmd = "file transfer";
   msg->numargs = 0;
   msg->numfiles = numFiles;
-  printf("numFiles == %d\n", numFiles);
+  //printf("numFiles == %d\n", numFiles);
   msg->dirs = malloc(sizeof(char)*numFiles);
   msg->dirs[numFiles] = '\0';
   msg->filepaths = malloc(sizeof(char*)*numFiles);
@@ -667,7 +690,7 @@ int upgradeS(int client, message *msg){
   char *temp = NULL;
   int i = 0;
   while(ptr!=NULL){
-    printf("Start loop\n");
+    //printf("Start loop\n");
     temp==NULL;
     if(ptr->str[0]=='A' || ptr->str[0]=='M'){
       //printf("filepath: [%s]\n", ptr->str);
@@ -1054,12 +1077,16 @@ void *interactWithClient(void *fd){
   if(strcmp(msg->cmd, "checkout")==0){
     pthread_mutex_lock(&lock);
     wnode *ptr = findLL(fileList, msg->args[0]);
-    int num = ptr->num;
-    ptr->num = 1; //locks file
+    int num = 0;
+    if(ptr!=NULL){  
+      num = ptr->num;
+      ptr->num = 1;//locks file
+    }
     pthread_mutex_unlock(&lock);
     if(num==0){
       checkout(mfd, msg);
-      ptr->num = 0; //unlocks file
+      if(ptr!=NULL)
+	ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
       write(mfd, "5", 1);
@@ -1068,12 +1095,16 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "update")==0){
     pthread_mutex_lock(&lock);
     wnode *ptr = findLL(fileList, msg->args[0]);
-    int num = ptr->num;
-    ptr->num = 1; //locks file
+    int num = 0;
+    if(ptr!=NULL){  
+      num = ptr->num;
+      ptr->num = 1;//locks file
+    }
     pthread_mutex_unlock(&lock);
     if(num==0){
       updateS(mfd, msg);
-      ptr->num = 0; //unlocks file
+      if(ptr!=NULL)
+	ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
       msg->cmd = "error";
@@ -1089,12 +1120,16 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "upgrade")==0){
     pthread_mutex_lock(&lock);
     wnode *ptr = findLL(fileList, msg->args[0]);
-    int num = ptr->num;
-    ptr->num = 1; //locks file
+    int num = 0;
+    if(ptr!=NULL){  
+      num = ptr->num;
+      ptr->num = 1;//locks file
+    }
     pthread_mutex_unlock(&lock);
     if(num==0){
       upgradeS(mfd, msg);
-      ptr->num = 0; //unlocks file
+      if(ptr!=NULL)
+	ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
       msg->cmd = "error";
@@ -1110,12 +1145,16 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "commit")==0){
     pthread_mutex_lock(&lock);
     wnode *ptr = findLL(fileList, msg->args[0]);
-    int num = ptr->num;
-    ptr->num = 1; //locks file
+    int num = 0;
+    if(ptr!=NULL){  
+      num = ptr->num;
+      ptr->num = 1;//locks file
+    }
     pthread_mutex_unlock(&lock);
     if(num==0){
       commit(mfd, msg);
-      ptr->num = 0; //unlocks file
+      if(ptr!=NULL)
+	ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
       write(mfd, "5", 1);
@@ -1124,12 +1163,16 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "push")==0){
     pthread_mutex_lock(&lock);
     wnode *ptr = findLL(fileList, msg->args[0]);
-    int num = ptr->num;
-    ptr->num = 1; //locks file
+    int num = 0;
+    if(ptr!=NULL){  
+      num = ptr->num;
+      ptr->num = 1;//locks file
+    }
     pthread_mutex_unlock(&lock);
     if(num==0){
       push(mfd, msg);
-      ptr->num = 0; //unlocks file
+      if(ptr!=NULL)
+	ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
       write(mfd, "5", 1);
@@ -1140,12 +1183,16 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "destroy")==0){
     pthread_mutex_lock(&lock);
     wnode *ptr = findLL(fileList, msg->args[0]);
-    int num = ptr->num;
-    ptr->num = 1; //locks file
+    int num = 0;
+    if(ptr!=NULL){  
+      num = ptr->num;
+      ptr->num = 1;//locks file
+    }
     pthread_mutex_unlock(&lock);
     if(num==0){
       destroy(mfd, msg);
-      ptr->num = 0; //unlocks file
+      if(ptr!=NULL)
+	ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
       write(mfd, "5", 1);
@@ -1154,12 +1201,16 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "currentversion")==0){
     pthread_mutex_lock(&lock);
     wnode *ptr = findLL(fileList, msg->args[0]);
-    int num = ptr->num;
-    ptr->num = 1; //locks file
+    int num = 0;
+    if(ptr!=NULL){  
+      num = ptr->num;
+      ptr->num = 1;//locks file
+    }
     pthread_mutex_unlock(&lock);
     if(num==0){
       currentVersion(mfd, msg);
-      ptr->num = 0; //unlocks file
+      if(ptr!=NULL)
+	ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
       write(mfd, "5", 1);
@@ -1168,12 +1219,16 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "history")==0){
     pthread_mutex_lock(&lock);
     wnode *ptr = findLL(fileList, msg->args[0]);
-    int num = ptr->num;
-    ptr->num = 1; //locks file
+    int num = 0;
+    if(ptr!=NULL){  
+      num = ptr->num;
+      ptr->num = 1;//locks file
+    }
     pthread_mutex_unlock(&lock);
     if(num==0){
       history(mfd, msg);
-      ptr->num = 0; //unlocks file
+      if(ptr!=NULL)
+	ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
       write(mfd, "5", 1);
@@ -1182,12 +1237,16 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "rollback")==0){
     pthread_mutex_lock(&lock);
     wnode *ptr = findLL(fileList, msg->args[0]);
-    int num = ptr->num;
-    ptr->num = 1; //locks file
+    int num = 0;
+    if(ptr!=NULL){  
+      num = ptr->num;
+      ptr->num = 1;//locks file
+    }
     pthread_mutex_unlock(&lock);
     if(num==0){
       rollback(mfd, msg);
-      ptr->num = 0; //unlocks file
+      if(ptr!=NULL)
+	ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
       write(mfd, "5", 1);

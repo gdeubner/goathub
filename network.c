@@ -26,6 +26,8 @@ int buildClient(){
   if(configurefd<0){
     printf("[client] ERROR: No .configure file found. Please run configure.\n");
     close(configurefd);
+    free(IP);
+    free(port);
     return -1;
   }
   char* buffer=malloc(sizeof(char)*2000);
@@ -46,7 +48,9 @@ int buildClient(){
         printf("[client] Error:[buildClient] Unable to read bytes from .configure\n");
         free(buffer);
 	close(configurefd);
-        return -1;
+        free(IP);
+	free(port);
+	return -1;
       }
     }
   }while(bytesRead!=0);
@@ -83,6 +87,9 @@ int buildClient(){
   servAddr.sin_port=htons(atoi(port));
   if(connect(sockfd,(SA*)&servAddr,sizeof(servAddr))!=0){
     printf("[client] Server connection failed\n");
+    free(buffer);
+    free(IP);
+    free(port);
     close(sockfd);
     return -1;
   }else{

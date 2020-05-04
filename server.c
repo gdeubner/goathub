@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <signal.h>
 #include "network.h"
 #include "fileManip.h"
 #include "gStructs.h"
@@ -22,6 +23,26 @@ wnode *fileList;
 
 int killserverS(){
   printf("[server] Client killed the server.\n");
+  while(fileList!=NULL){
+    wnode *prev = fileList;
+    fileList = fileList->next;
+    free(prev->str);
+    free(prev);
+  }
+  
+  exit(0);
+}
+
+void sigintHandler(int num){
+  printf("\nSIGINT was handled\n");
+  wnode *prev = NULL;
+  while(fileList!=NULL){
+    prev = fileList;
+    fileList = fileList->next;
+    free(prev->str);
+    free(prev);
+  }
+  signal(SIGINT, SIG_DFL);
   exit(0);
 }
 
@@ -1263,6 +1284,7 @@ void *interactWithClient(void *fd){
 
 int main(int argc, char** argv){
   fileList = NULL;
+  signal(SIGINT, sigintHandler);
   if(argc!= 2){
     printf("[server] Error: Gave %s argument(s). Must only enter port number.\n", argc);
     return 0;

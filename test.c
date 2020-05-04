@@ -72,7 +72,27 @@ int main(int argc, char **argv){
   
   //system("./WTF update testproject");
   //system("./WTF upgrade testproject");
-  
+  int fd=open("./testproject/test1.txt",O_RDWR|O_CREAT,00666);
+  write(fd,"Hello",5);
+  close(fd);
+  system("./WTF add testproject test1.txt");
+  system("./WTF commit testproject");
+  system("./WTF push testproject");
+  system("./WTF history testproject");
+  system("./WTF currentversion testproject");
+  system("./WTF remove testproject test1.txt");
+  system("./WTF commit testproject");
+  system("./WTF push testproject");
+  system("./WTF currentversion testproject");
+  system("./WTF rollback testproject 2");
+  remove("./testproject/.Manifest");
+  fd=open("./testproject/.Manifest",O_RDWR|O_CREAT,00666);
+  write(fd,"1\n",2);
+  close(fd);
+  system("./WTF currentversion testproject");
+  system("./WTF update testproject");
+  system("./WTF upgrade testproject");
+  system("./WTF history testproject");
   system("./WTF destroy testproject");
   system("./WTF killserver");
   printf("Test concluded\n");

@@ -1048,6 +1048,7 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "rollback")==0){
     rollback(mfd, msg);
   }else if(strcmp(msg->cmd, "killserver")==0){
+    close(mfd);
     killserverS();
   }else{
     printf("[server] Unknown argument entered\n");

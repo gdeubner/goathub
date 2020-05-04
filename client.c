@@ -25,6 +25,7 @@ int killserver(){
   msg->numfiles = 0;
   sendMessage(serverfd, msg);
   printf("[client] killing server\n");
+  close(serverfd);
   return 0;
 }
 

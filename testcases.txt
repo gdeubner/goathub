@@ -1,0 +1,161 @@
+Functions and testcases:
+
+For all:
+	Testcase:
+		Gave it improper parameters
+	Output:
+		Asked user for proper parameters
+	Testcase:
+		Server was not running but still ran ./WTF
+	Output:
+		Error printed out saying it cannot connect
+	Testcase:
+		Gave it a nonexistant project (Except for create)
+	Output:
+		Error printed out saying project does not exist
+killserver
+	Testcase: ./WTF killserver
+	Output: WTFserver stops working
+push
+	Testcase:
+		After creating a .Commit file containing two files to add, client pushed
+	Output:
+		Project compressed and stored before changes. Version number incremented and server has updated new files. 
+		Pending .Commits removed and local .Commit removed. Project log updated.
+	Testcase:
+		After creating a .Commit file containing two files to delete, client pushed
+	Output:
+		Project compressed and stored before changes. Version number incremented and server has removed the two files. 
+		Pending .Commits removed and local .Commit removed. Project log updated
+	Testcase:
+		After creating a .Commit file containing two files to modify, client pushed
+	Output:
+		Project compressed and stored before changes. Version number incremented and server has updated files. 
+		Pending .Commits removed and local .Commit removed. Project log updated
+	Testcase:
+		Trying to run while .Commit does not exist on Client
+	Output:
+		Program exists and asks for user to run commit before push
+	Testcase:
+		.Commits on server and local do not match
+	Output:
+		Program exits and tells user .Commits do not match. Local .Commit removed
+upgrade
+	Testcase:
+		No .Update file
+	Output:
+		Program asks user to update before upgrading
+	Testcase:
+		Non empty .Update file asking for multiple files to be added and modified
+	Output:
+		Client recieves new and updated files and updates its .Manifest to match server's and removes local .Update
+	Testcase:
+		Non empty .Update file but .Conflict file exists
+	Output:
+		Program asks user to fix conflicts and exists
+
+commit
+	Testcase:
+		Local and server .Manifest do not match
+	Output:
+		Program asks user to synchronize with repository
+	Testcase:
+		Non empty .Update
+	Output:
+		Program asks user to synchronize with respository
+	Testcase:
+		.Conflict file found
+	Output:
+		Program asks user resolve conflicts and synchronize with repository
+	Testcase:
+		.Manifest versions match on both server and local, but local has multiple changes, e.g. new files and removed old files as well as modifed old ones
+	Output:
+		Client creates a .Commit documenting all changes to files
+history
+	Testcase:
+		Given existing project name
+	Output:
+		Program prints out all of the project's log
+	
+destroy
+	Testcase:
+		Given existing project name
+	Output:
+		Program destroys existing project directory on server as well as project archive, project log, and project commits if applicable.
+update
+	Testcase:
+		Matching .Manifest on local and server
+	Output:
+		Program says user's local copy is already up to date
+	Testcase:
+		Non matching .Manifest on local and server with local having an older version of project
+	Output:
+		Program creates .Update with file differences
+	Testcase:
+		Non matching .Manifest on local and server with local having an older version of project but also modified
+	Output:
+		Program creates .Update with file differences as well as .Conflict documenting changes
+rollback
+	Testcase:
+		Given invalid version number to project
+	Output:
+		Program tells user that it is a invalid version number to rollback to
+	Testcase:
+		Given valid version number and project
+	Output:
+		Server rollbacks repository to version specified, removes any more recent compressed versions of project and writes rollback changes to log.
+currentversion
+	Testcase:
+		Given valid project
+	Output:
+		Program prints out .Manifest of specified project without hashes.
+checkout
+	Testcase:
+		Given valid project
+	Output:
+		Project directory is made locally and current version of files in repository populate the directory
+remove
+	Testcase:
+		Given valid project and file in .Manifest
+	Output:
+		Removes file entry in .Manifest
+		Testcase:
+		Given valid project and invalid file in .Manifest
+	Output:
+		Program prints out an error stating that file entry was not found
+add
+	Testcase:
+		Given valid project and file is already in .Manifest
+	Output:
+		Program prints an error stating that entry already exists
+	Testcase:
+		Given valid project and file is not already in .Manifest and file is in local project directory
+	Output:
+		Program writes entry into local project's .Manifest
+	Testcase:
+		Given valid project and file is not already in .Manifest and file is not in local project directory
+	Output:
+		Program prints an error stating that file cannot be found in local project directory
+create
+	Testcase:
+		Given project that does not exist locally or on server's directory
+	Output:
+		Project directory created in server directory and locally as well as project log with Push 1\nCreation\n written in already.
+	Testcase:
+		Given project that exists locally but not on server's directory
+	Output:
+		Project directory created in server directory as well as project log with Push 1\nCreation\n written in already.
+		Program also prints out an error saying project exists locally already as well
+	Testcase:
+		Given project that already exists on server's directory
+	Output:
+		Program prints out an error saying project already exists
+configure
+	Testcase:
+		Given proper number of arguments
+	Output:
+		.Configure created with IP and port separated by \t
+	Testcase:
+		Given improper number of arguments
+	Output:
+		Program asks user to give it proper amount of arguments

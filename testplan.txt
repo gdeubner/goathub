@@ -1,0 +1,13 @@
+Testplan:
+	To run the testplan, please run on cmd line in this order
+	make all
+	make test
+	./WTFtest
+NOTE: Recommended current working directory is empty, aside from files needed to compile before running commands on cmd line.
+NOTE: I do not recommend running ./WTFTest multiple times in quick succession, binding errors can
+	occur if you do, which will result in ./WTFtest not working at all
+What this will test:
+	Upon running WTFtest it will fork into another process and run ./WTFtestserver, which will run ./WTFserver in a separate 
+	directory called "server" as created by make test. WTFtest will then make systems call running every function possible and
+	will test multithreading and mutexing, but calling sleep at intervals to make sure mutex locks work.
+	

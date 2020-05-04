@@ -391,7 +391,7 @@ int push(int client,message* msg){
 	write(client,"0",1);
 	memset(temp1,'\0',2000);
 	close(client);
-	char* copy="rm -r ";
+	char* copy="rm -rf ";
 	strcat(temp1,copy);
 	strcat(temp1,project);
 	system(temp1);
@@ -519,21 +519,24 @@ int push(int client,message* msg){
   copyFile(log,newtempfd);
   write(log,"\n",1);
   close(log);
-  memset(temp1,'\0',2000);
-  strcat(temp1,"rm -r ");//get rid of all pending commits
-  strcat(temp1,project);
-  strcat(temp1,Commit);
   close(newtempfd);
-  free(newVer);
-  free(temp1);
+  remove(temp1);
   write(client,"1",1);
   memset(mani,'\0',2000);
   strcat(mani,project);
   strcat(mani,"/.Manifest");
   sendFile(client,mani);//Send new manifest over to client
-  free(project);
   free(mani);
   close(client);
+  memset(temp1,'\0',2000);
+  char* cop="rm -r ";
+  strcat(temp1,cop);//get rid of all pending commits
+  strcat(temp1,project);
+  strcat(temp1,"Commit");
+  system(temp1);
+  free(newVer);
+  free(temp1);
+  free(project);
   return 1;
 }
 int commit(int client, message* msg){
@@ -564,7 +567,7 @@ int commit(int client, message* msg){
   if(proj==NULL){
     char* path=malloc(sizeof(char)*2000);
     memset(path,'\0',2000);
-    strcat(path,"mkdir ");
+    strcat(path,"mkdir -m 777 ");
     strcat(path,temp);
     system(path);
     free(path);
@@ -828,6 +831,12 @@ int rollback(int client,message* msg){
   decompressProject(project,msg->args[1]);
   //remove(temp);
   memset(temp,'\0',2000);
+  char* cop="rm -r ";
+  strcat(temp,cop);//get rid of all pending commits
+  strcat(temp,project);
+  strcat(temp,"Commit");
+  system(temp);
+  memset(temp,'\0',2000);
   strcat(temp,project);
   strcat(temp,"log");
   close(fd);
@@ -1027,7 +1036,7 @@ void *interactWithClient(void *fd){
   }else if(strcmp(msg->cmd, "commit")==0){
     commit(mfd, msg);
   }else if(strcmp(msg->cmd, "push")==0){
-    push(fd, msg);
+    push(mfd, msg);
   }else if(strcmp(msg->cmd, "create")==0){
     createS(mfd, msg);
   }else if(strcmp(msg->cmd, "destroy")==0){

@@ -67,6 +67,16 @@ int push(char* project){
     free(check);
     close(serverfd);
     close(fd);
+    return 0;
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
+    free(msg->args);
+    free(msg);
+    free(path);
+    free(check);
+    close(serverfd);
+    close(fd);
+    return 0;
   }
   int len=readBytesNum(serverfd);
   wnode* servhead;
@@ -412,6 +422,11 @@ int commit(char* project){
     free(check);
     close(serverfd);
     return 0;
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
+    free(check);
+    close(serverfd);
+    return 0;
   }
   free(check);
   int len=readBytesNum(serverfd);
@@ -565,6 +580,11 @@ int history(char* project){
     close(serverfd);
     free(check);
     return 0;
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
+    close(serverfd);
+    free(check);
+    return 0;
   }
   free(check);
   int len=readBytesNum(serverfd);
@@ -597,12 +617,15 @@ int destroy(char* project){
   check[1]='\0';
   if(atoi(check)==0){
     printf("[client] Error: project not found\n");
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
   }else{
     printf("[client] Project: %s deleted.\n",project);
   }
   free(check);
   free(msg->args);
   free(msg);
+  close(serverfd);
   return 1;
 }
 
@@ -800,14 +823,15 @@ int rollbackC(char* project,char* version){
   int check=atoi(buffer);
   if(check==0){
     printf("[client] Error: Project was not found\n");
-    return 1;
   }else if(check==1){
-    return 1;
   }else if(check==2){
     printf("[client] Werror: Invalid version number to be rolled back to\n");
-    return 1;
+  }else if(check==5){
+    printf("[client] Project being accessed by another client, please try again\n");
   }
   printf("[client] %s rolled back to %s\n",project,version);
+  free(buffer);
+  close(serverfd);
   return 1;
 }
 
@@ -869,6 +893,13 @@ int currentVersionC(char* project){
   check[1]='\0';
   if(atoi(check)==0){
     printf("[client] Project not found\n");
+    close(serverfd);
+    free(check);
+    return 0;
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
+    free(check);
+    close(serverfd);
     return 0;
   }
   free(check);

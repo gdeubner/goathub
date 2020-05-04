@@ -513,7 +513,7 @@ int compressProject(char* project){
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
   strcat(temp,project);
-  strcat(temp,"/.manifest");
+  strcat(temp,"/.Manifest");
   char* buffer=malloc(sizeof(char)*2000);
   memset(buffer,'\0',2000);
   int ptr=-1;

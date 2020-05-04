@@ -25,6 +25,7 @@ int killserver(){
   msg->numfiles = 0;
   sendMessage(serverfd, msg);
   printf("[client] killing server\n");
+  close(serverfd);
   return 0;
 }
 
@@ -66,6 +67,16 @@ int push(char* project){
     free(check);
     close(serverfd);
     close(fd);
+    return 0;
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
+    free(msg->args);
+    free(msg);
+    free(path);
+    free(check);
+    close(serverfd);
+    close(fd);
+    return 0;
   }
   int len=readBytesNum(serverfd);
   wnode* servhead;
@@ -411,53 +422,14 @@ int commit(char* project){
     free(check);
     close(serverfd);
     return 0;
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
+    free(check);
+    close(serverfd);
+    return 0;
   }
   free(check);
   int len=readBytesNum(serverfd);
-  /*char* serverMan=malloc(sizeof(char)*(len+1));
-  memset(serverMan,'\0',len+1);
-  /*read(serverfd,serverMan,len);//serverMan holds .Manifest from server
-  memset(path,'\0',2000);
-  strcat(path,project);
-  strcat(path,"/.Manifest");//holds string: <project>/.Manifest
-  char* buffer=malloc(sizeof(char)*2001);
-  char* localMan=malloc(sizeof(char)*2001);
-  memset(localMan,'\0',2001);
-  int i=1;
-  int totalBytesRead=0;
-  int bytesToRead=2000;
-  int bytesRead=-1;
-  do{
-    memset(buffer,'\0',2001);
-    bytesRead=0;
-    while(bytesRead<=bytesToRead){
-      bytesRead=read(localManfd,localMan,bytesToRead);
-      totalBytesRead+=bytesRead;
-      if(bytesRead==0){
-	break;
-      }
-      if(bytesRead<0){
-	printf("ERROR:Unable to read bytes from File\n");
-	close(localManfd);
-	return 0;
-      }
-      if(totalBytesRead>=2000*i){
-	i++;
-	char* new = malloc(sizeof(char)*((2000*i)+1));
-	memset(new,'0',(2000*i)+1);
-	memcpy(new,localMan,strlen(localMan));
-	char* old=localMan;
-	localMan=new;
-	free(old);
-      }
-      strcat(localMan,buffer);
-    }
-  }while(bytesRead!=0);
-  close(localManfd);
-  free(buffer);
-  if(strcmp(localMan,serverMan)!=0){
-    printf("ERROR:Local and Server Manifest do not match, please update local project\n");
-    }*/
   memset(path,'\0',2000);
   strcat(path,project);
   strcat(path,"/.Commit"); //path should be <project>/.Commit
@@ -557,16 +529,6 @@ int commit(char* project){
 	  printf("[client] Error: Please synchronize with %s repository before commiting\n", project);
 	  return 0;
 	}
-	//remove server entry and set removed
-	/*if(sprev==NULL){ //first entry
-	  sptr = removeFirstNodeLL(sptr);
-	  servhead = sptr;
-	}else{ //not first entry
-	  sprev->next = removeNodeLL(sprev);
-	  sptr = sprev->next;
-	}
-	removedServerEntry = 1;
-	break;*/
       }////end else   (found matching filepath in client's .manifest)
       
     }////end client while loop
@@ -618,6 +580,11 @@ int history(char* project){
     close(serverfd);
     free(check);
     return 0;
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
+    close(serverfd);
+    free(check);
+    return 0;
   }
   free(check);
   int len=readBytesNum(serverfd);
@@ -650,12 +617,15 @@ int destroy(char* project){
   check[1]='\0';
   if(atoi(check)==0){
     printf("[client] Error: project not found\n");
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
   }else{
     printf("[client] Project: %s deleted.\n",project);
   }
   free(check);
   free(msg->args);
   free(msg);
+  close(serverfd);
   return 1;
 }
 
@@ -853,14 +823,15 @@ int rollbackC(char* project,char* version){
   int check=atoi(buffer);
   if(check==0){
     printf("[client] Error: Project was not found\n");
-    return 1;
   }else if(check==1){
-    return 1;
   }else if(check==2){
     printf("[client] Werror: Invalid version number to be rolled back to\n");
-    return 1;
+  }else if(check==5){
+    printf("[client] Project being accessed by another client, please try again\n");
   }
   printf("[client] %s rolled back to %s\n",project,version);
+  free(buffer);
+  close(serverfd);
   return 1;
 }
 
@@ -884,10 +855,7 @@ void printManifest(char* str){
       ptr++;
       i++;
     }
-    //int fileVer=atoi(temp);
-    //printf("[client] File is: %s ",temp);
     int fileVer=atoi(temp);
-    //printf("File is: %s ",temp);
     ptr++;
     i=0;
     memset(temp,'\0',2000);
@@ -925,6 +893,13 @@ int currentVersionC(char* project){
   check[1]='\0';
   if(atoi(check)==0){
     printf("[client] Project not found\n");
+    close(serverfd);
+    free(check);
+    return 0;
+  }else if(atoi(check)==5){
+    printf("[client] Project being accessed by another client, please try again\n");
+    free(check);
+    close(serverfd);
     return 0;
   }
   free(check);

@@ -216,14 +216,6 @@ int add(char *project, char *file){
   //strcat(path, project);
   //strcat(path, "/");
   strcat(path, file);
-  /*int fd = open(path, O_RDWR);
-  if(fd<0){
-    printf("Error: Unable to find file %s in %s.\n", file, project);
-    free(path);
-    free(manPath);
-    return -1;
-  }
-  close(fd);*/
   int man = open(manPath, O_RDWR);
   free(manPath);
   if(man<0){
@@ -399,7 +391,7 @@ int push(int client,message* msg){
 	write(client,"0",1);
 	memset(temp1,'\0',2000);
 	close(client);
-	char* copy="rm -r ";
+	char* copy="rm -rf ";
 	strcat(temp1,copy);
 	strcat(temp1,project);
 	system(temp1);
@@ -527,18 +519,24 @@ int push(int client,message* msg){
   copyFile(log,newtempfd);
   write(log,"\n",1);
   close(log);
-  remove(temp1);//Removes server's copy of .Commit
   close(newtempfd);
-  free(newVer);
-  free(temp1);
+  remove(temp1);
   write(client,"1",1);
   memset(mani,'\0',2000);
   strcat(mani,project);
   strcat(mani,"/.Manifest");
   sendFile(client,mani);//Send new manifest over to client
-  free(project);
   free(mani);
   close(client);
+  memset(temp1,'\0',2000);
+  char* cop="rm -r ";
+  strcat(temp1,cop);//get rid of all pending commits
+  strcat(temp1,project);
+  strcat(temp1,"Commit");
+  system(temp1);
+  free(newVer);
+  free(temp1);
+  free(project);
   return 1;
 }
 int commit(int client, message* msg){
@@ -569,7 +567,7 @@ int commit(int client, message* msg){
   if(proj==NULL){
     char* path=malloc(sizeof(char)*2000);
     memset(path,'\0',2000);
-    strcat(path,"mkdir ");
+    strcat(path,"mkdir -m 777 ");
     strcat(path,temp);
     system(path);
     free(path);
@@ -819,17 +817,6 @@ int rollback(int client,message* msg){
     close(client);
     return 2;
   }
-  /*int dCheck=destroy(project);
-  if(dCheck!=1){
-    free(msg->cmd);
-    free(msg->args[0]);
-    free(msg->args);
-    free(msg);
-    free(vcheck);
-    printf("Project not found\n");
-    write(client,"0",1);
-    return 0;
-    }*/
   char* temp=malloc(sizeof(char)*2000);
   do{
     v++;
@@ -841,13 +828,14 @@ int rollback(int client,message* msg){
     strcat(temp,temp2);
     printf("[server] Version to remove is %s\n",temp2);
   }while(remove(temp)==0);
-  /*memset(temp,'\0',2000);
-  strcat(temp,project);
-  strcat(temp,"archive/");
-  strcat(temp,project);
-  strcat(temp,msg->args[1]);*/
   decompressProject(project,msg->args[1]);
   //remove(temp);
+  memset(temp,'\0',2000);
+  char* cop="rm -r ";
+  strcat(temp,cop);//get rid of all pending commits
+  strcat(temp,project);
+  strcat(temp,"Commit");
+  system(temp);
   memset(temp,'\0',2000);
   strcat(temp,project);
   strcat(temp,"log");
@@ -1180,6 +1168,7 @@ void *interactWithClient(void *fd){
       return 0;
     }
   }else if(strcmp(msg->cmd, "killserver")==0){
+    close(mfd);
     killserverS();
   }else{
     printf("[server] Unknown argument entered\n");
@@ -1241,8 +1230,6 @@ int main(int argc, char** argv){
       printf("[server] Listening\n");
     }
   }
-  //int bytes=readBytesNum(clientfd);
-  //message* clientCommand=recieveMessage(clientfd,clientCommand,bytes);
   close(clientfd);
   return 0;
 }

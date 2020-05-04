@@ -80,7 +80,7 @@ int main(int argc, char **argv){
   sleep(2);
   printf("Killing Server\n");
   system("./WTF killserver");
-  system("rm -r testproject");
+  system("rm -R server testproject");
   printf("Test concluded\n");
   return 0;  
 }

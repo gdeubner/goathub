@@ -605,7 +605,7 @@ int history(char* project){
   char*temp=malloc(sizeof(char)*(len+1));
   memset(temp,'\0',len+1);
   read(serverfd,temp,len);
-  //printf("%s\n",temp);
+  printf("%s\n",temp);
   close(serverfd);
   free(temp);
   return 1;

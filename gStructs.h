@@ -37,8 +37,9 @@ void quickSort(wnode **list, int lo, int hi);
 wnode *condenseLL(wnode *head);
 wnode *removeNodeLL(wnode *prev);
 wnode *removeFirstNodeLL(wnode *ptr);
-
-
+int lockFile(wnode *head, char *target);
+int unlockFile(wnode *head, char *target);
+wnode *findLL(wnode *head, char *target);
 
 /* typedef struct _node{ */
 /*   char* token; */

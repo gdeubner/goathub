@@ -51,6 +51,7 @@ int main(int argc, char **argv){
   system("./WTF history testproject");
   printf("Getting current version, should be 2\n");
   system("./WTF currentversion testproject");
+  sleep(1);
   printf("Removing from local manifest\n");
   system("./WTF remove testproject test1.txt");
   printf("Commiting removal\n");
@@ -65,6 +66,7 @@ int main(int argc, char **argv){
   fd=open("./testproject/.Manifest",O_RDWR|O_CREAT,00666);
   write(fd,"1\n",2);
   close(fd);
+  sleep(2);
   printf("Getting current version, should be 2\n");
   system("./WTF currentversion testproject");
   printf("Updating\n");
@@ -75,6 +77,7 @@ int main(int argc, char **argv){
   system("./WTF history testproject");
   printf("Destroying project\n");
   system("./WTF destroy testproject");
+  sleep(2);
   printf("Killing Server\n");
   system("./WTF killserver");
   system("rm -r testproject");

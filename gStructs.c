@@ -396,13 +396,22 @@ int lockFile(wnode *head, char *target){
   if(head->num==1)
     return 1; // locked, not available
   
-  return -1;
+  return 0;
 }
 
 int unlockFile(wnode *head, char *target){
   wnode *ptr = NULL;
   ptr = searchLL(head, target);
   if(ptr!=NULL)
-    ptr->num == 0;
+    ptr->num = 0;
   return 0;
+}
+
+wnode *findLL(wnode *head, char *target){
+  while(head!=NULL){
+    if(strcmp(head->str, target)==0)
+      return head;
+    head = head->next;
+  }
+  return NULL;
 }

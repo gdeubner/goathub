@@ -22,7 +22,7 @@ void printBST(tnode *root);
 wnode *BSTtoLL(tnode *root, wnode *head);
 void cleanBST(tnode *root);
 tnode *makeTnode(char* str);
-wnode *insertLL(wnode *head, char *str);
+wnode *insertLL(wnode *head, char *str, int num);
 int getLLSize(wnode *head);
 void cleanLL(wnode *head);
 int lenLL(wnode *head);
@@ -38,7 +38,6 @@ wnode *condenseLL(wnode *head);
 wnode *removeNodeLL(wnode *prev);
 wnode *removeFirstNodeLL(wnode *ptr);
 
-wnode *insertLL(wnode *head, char *str);
 
 
 /* typedef struct _node{ */

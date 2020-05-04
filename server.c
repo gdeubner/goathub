@@ -17,8 +17,8 @@
 #include "server.h"
 
 #define SA struct sockaddr
-
-//void handleIt(int sig);
+pthread_mutex_t lock;
+wnode *fileList;
 
 int killserverS(){
   printf("[server] Client killed the server.\n");
@@ -305,7 +305,7 @@ int push(int client,message* msg){
   char* curV=itoa(curV,version);//For use in decompressProject if failure occurs
   close(tempfd);
   tempfd=open(temp1,O_RDWR);
-  printf("%s version's before push is %d\n",project,version);
+  //printf("%s version's before push is %d\n",project,version);
   wnode *ptr = NULL;
   ptr = scanFile(tempfd, ptr, "\n");
   printLL(ptr);
@@ -326,7 +326,7 @@ int push(int client,message* msg){
 	strcat(temp1,project);
 	system(temp1);
 	free(temp1);
-	printf("Push failed\n", temp);
+	printf("[server] Push failed %s\n", temp);
 	decompressProject(project,curV);
 	freeMSG(msg);
 	free(project);
@@ -344,7 +344,7 @@ int push(int client,message* msg){
 	strcat(temp1,project);
 	system(temp1);
 	free(temp1);
-	printf("Push failed\n", temp);
+	printf("[server] Push failed %s\n", temp);
 	decompressProject(project,curV);
 	close(client);
 	freeMSG(msg);
@@ -354,7 +354,7 @@ int push(int client,message* msg){
 	return 0;
       }
       i++;
-      printf("Deleted %s\n", temp);
+      printf("[server] Deleted file: %s\n", temp);
     }else if(strcmp(temp, "A")==0){ //add new file (with new folders)
       //create new folderzzz
       temp = strtok(NULL, " ");
@@ -384,7 +384,7 @@ int push(int client,message* msg){
 	strcat(temp1,project);
 	system(temp1);
 	free(temp1);
-	printf("Push failed\n", temp);
+	printf("[server] Push failed\n", temp);
 	decompressProject(project,curV);
 	freeMSG(msg);
 	free(project);
@@ -404,7 +404,7 @@ int push(int client,message* msg){
 	strcat(temp1,project);
 	system(temp1);
 	free(temp1);
-	printf("Push failed\n");
+	printf("[server] Push failed\n");
 	decompressProject(project,curV);
 	freeMSG(msg);
 	free(project);
@@ -413,7 +413,7 @@ int push(int client,message* msg){
 	return 0;
       }
       i++;
-      printf("Added file %s\n", temp);
+      printf("[server] Added file: %s\n", temp);
     }else if(strcmp(temp, "M")==0){ //modify file (delete and recreate)
       temp = strtok(NULL, " ");
       int v;
@@ -427,7 +427,7 @@ int push(int client,message* msg){
 	strcat(temp1,project);
 	system(temp1);
 	free(temp1);
-	printf("Push failed\n");
+	printf("[server] Push failed\n");
 	decompressProject(project,curV);
 	freeMSG(msg);
 	free(project);
@@ -475,7 +475,7 @@ int push(int client,message* msg){
 	close(tempfd);
 	return 0;
       };
-      printf("Edited %s\n", temp);
+      printf("[server] Edited file: %s\n", temp);
     }
     prev = ptr;
     ptr = ptr->next;
@@ -514,7 +514,7 @@ int push(int client,message* msg){
   system(last);//Renames .ManifestNew to .Manifest
   free(mani2);
   //free(mani);
-  printf("Push on %s, successful\n",project);//Update log time
+  printf("[server] Successful ush on %s\n",project);//Update log time
   memset(last,'\0',2000);
   strcat(last,project);
   strcat(last,"log");
@@ -934,6 +934,27 @@ int checkout(int client, message *msg){
 }
 
 int destroy(int client,message* msg){
+  wnode *ptr = fileList;
+  wnode *prev = NULL;
+  while(ptr!=NULL){
+    if(strcmp(ptr->str, msg->args[0])==0){
+      if(prev==NULL){
+	prev = ptr;
+	fileList = ptr->next;
+	free(prev->str);
+	free(prev);
+	break;
+      }else{
+	prev = ptr->next;
+	free(ptr->str);
+	free(ptr);
+	break;
+      }
+    }
+    prev = ptr;
+    ptr = ptr->next;
+  }
+  
   char* temp=malloc(sizeof(char)*2000);
   memset(temp,'\0',2000);
   char* copy="rm -r -f ";
@@ -992,6 +1013,9 @@ int createS(int clientfd, message *msg){
     return -1;
   }
   printf("[server] Succefully created project %s\n", projectName);
+  
+  fileList = insertLL(fileList, projectName, 0);
+  
   int size = strlen(projectName);  
   char *manFile = malloc(sizeof(char)*(size + 13));
   memcpy(manFile, "./", 2);
@@ -1040,25 +1064,121 @@ void *interactWithClient(void *fd){
   msg = recieveMessage(mfd, msg);
   printf("[server] message recieved on server\n");
   if(strcmp(msg->cmd, "checkout")==0){
-    checkout(mfd, msg);
+    pthread_mutex_lock(&lock);
+    int num = lockFile(fileList, msg->args[0]);
+    pthread_mutex_unlock(&lock);
+    if(num==0){
+      checkout(mfd, msg);
+      unlockFile(fileList, msg->args[0]);  
+    }else{
+      freeMSG(msg);
+      write(mfd, "1", 1);
+      return 0;
+    }
   }else if(strcmp(msg->cmd, "update")==0){
-    updateS(mfd, msg);
+    pthread_mutex_lock(&lock);
+    int num = lockFile(fileList, msg->args[0]);
+    pthread_mutex_unlock(&lock);
+    if(num==0){
+      updateS(mfd, msg);
+      unlockFile(fileList, msg->args[0]);  
+    }else{
+      freeMSG(msg);
+      msg->cmd = "blocked";
+      msg->numargs = 0;
+      msg->numfiles = 0;
+      sendMessage(mfd, msg);
+      return 0;
+    }
   }else if(strcmp(msg->cmd, "upgrade")==0){
-    upgradeS(mfd, msg);
+    pthread_mutex_lock(&lock);
+    int num = lockFile(fileList, msg->args[0]);
+    pthread_mutex_unlock(&lock);
+    if(num==0){
+      upgradeS(mfd, msg);
+      unlockFile(fileList, msg->args[0]);  
+    }else{
+      freeMSG(msg);
+      msg->cmd = "blocked";
+      msg->numargs = 0;
+      msg->numfiles = 0;
+      sendMessage(mfd, msg);
+      return 0;
+    }
   }else if(strcmp(msg->cmd, "commit")==0){
-    commit(mfd, msg);
+    pthread_mutex_lock(&lock);
+    int num = lockFile(fileList, msg->args[0]);
+    pthread_mutex_unlock(&lock);
+    if(num==0){
+      commit(mfd, msg);
+      unlockFile(fileList, msg->args[0]);  
+    }else{
+      freeMSG(msg);
+      write(mfd, "1", 1);
+      return 0;
+    }
   }else if(strcmp(msg->cmd, "push")==0){
-    push(fd, msg);
+    pthread_mutex_lock(&lock);
+    int num = lockFile(fileList, msg->args[0]);
+    pthread_mutex_unlock(&lock);
+    if(num==0){
+      push(mfd, msg);
+      unlockFile(fileList, msg->args[0]);  
+    }else{
+      freeMSG(msg);
+      write(mfd, "1", 1);
+      return 0;
+    }
   }else if(strcmp(msg->cmd, "create")==0){
     createS(mfd, msg);
   }else if(strcmp(msg->cmd, "destroy")==0){
-    destroy(mfd, msg);
+    pthread_mutex_lock(&lock);
+    int num = lockFile(fileList, msg->args[0]);
+    pthread_mutex_unlock(&lock);
+    if(num==0){
+      destroy(mfd, msg);
+      unlockFile(fileList, msg->args[0]);  
+    }else{
+      freeMSG(msg);
+      write(mfd, "1", 1);
+      return 0;
+    }
   }else if(strcmp(msg->cmd, "currentversion")==0){
-    currentVersion(mfd, msg);
+    pthread_mutex_lock(&lock);
+    int num = lockFile(fileList, msg->args[0]);
+    pthread_mutex_unlock(&lock);
+    if(num==0){
+      currentVersion(mfd, msg);
+      unlockFile(fileList, msg->args[0]);  
+    }else{
+      freeMSG(msg);
+      write(mfd, "1", 1);
+      return 0;
+    }
   }else if(strcmp(msg->cmd, "history")==0){
-    history(mfd, msg);
+    pthread_mutex_lock(&lock);
+    int num = lockFile(fileList, msg->args[0]);
+    pthread_mutex_unlock(&lock);
+    if(num==0){
+      history(mfd, msg);
+      unlockFile(fileList, msg->args[0]);  
+    }else{
+      freeMSG(msg);
+      write(mfd, "1", 1);
+      return 0;
+    }
   }else if(strcmp(msg->cmd, "rollback")==0){
-    rollback(mfd, msg);
+    pthread_mutex_lock(&lock);
+    int num = lockFile(fileList, msg->args[0]);
+    pthread_mutex_unlock(&lock);
+    if(num==0){
+      rollback(mfd, msg);
+      unlockFile(fileList, msg->args[0]);  
+    }else{
+      freeMSG(msg);
+      write(mfd, "1", 1);
+      return 0;
+    }
   }else if(strcmp(msg->cmd, "killserver")==0){
     killserverS();
   }else{
@@ -1068,6 +1188,7 @@ void *interactWithClient(void *fd){
 }
 
 int main(int argc, char** argv){
+  fileList = NULL;
   if(argc!= 2){
     printf("[server] Error: Gave %s argument(s). Must only enter port number.\n", argc);
     return 0;
@@ -1116,7 +1237,7 @@ int main(int argc, char** argv){
       printf("[server] Server accepted the client\n");
       pthread_t thread_id;
       pthread_create(&thread_id, NULL, interactWithClient, (void *)&clientfd);
-      //interactWithClient(clientfd);
+      //printLL(fileList);
       printf("[server] Listening\n");
     }
   }

@@ -28,7 +28,6 @@ int killserver(){
   return 0;
 }
 
-int push(char*);
 int push(char* project){
   char* path=malloc(sizeof(char)*2000);
   memset(path,'\0',2000);
@@ -36,14 +35,14 @@ int push(char* project){
   strcat(path,"/.Commit");
   int fd=open(path,O_RDONLY);
   if(fd<0){
-    printf("Error:Client does not have a commit file, please commit before pushing\n");
+    printf("[client] Error:Client does not have a commit file, please commit before pushing\n");
     free(path);
     close(fd);
     return 0;
   }
   int serverfd=buildClient();
   if(serverfd<0){
-    printf("Error:Cannot connect to server\n");
+    printf("[client] Error:Cannot connect to server\n");
     close(serverfd);
     close(fd);
     free(path);
@@ -60,7 +59,7 @@ int push(char* project){
   memset(check,'\0',2);
   read(serverfd,check,1);
   if(atoi(check)==0){
-    printf("Error:Project Commit not found\n");
+    printf("[client] Error:Project Commit not found\n");
     free(msg->args);
     free(msg);
     free(path);
@@ -108,7 +107,7 @@ int push(char* project){
       }
     }//End of inner while
     if(matchfound==0){//Mismatch in .Commits
-      printf("Error:Local .Commit and server .Commit do not match, removing local .Commit\n");
+      printf("[client] Error:Local .Commit and server .Commit do not match, removing local .Commit\n");
       msg->cmd="error";
       sendMessage(serverfd,msg);
       free(msg->args);
@@ -141,7 +140,7 @@ int push(char* project){
   msg->cmd = "file transfer";
   msg->numargs = 0;
   msg->numfiles = Files;
-  printf("numFiles == %d\n", Files);
+  //printf("numFiles == %d\n", Files);
   msg->dirs = malloc(sizeof(char)*Files);
   msg->dirs[Files] = '\0';
   msg->filepaths = malloc(sizeof(char*)*Files);
@@ -150,36 +149,36 @@ int push(char* project){
   char*temp=NULL;
   int i=0;
   while(ptr!=NULL){
-    printf("Start loop\n");
+    //printf("Start loop\n");
     temp==NULL;
     if(ptr->str[0]=='A' || ptr->str[0]=='M'){
-      printf("filepath: [%s]\n", ptr->str);
+      //printf("filepath: [%s]\n", ptr->str);
       msg->dirs[i] = '0';
       temp = strtok(ptr->str, " ");
-      printf("[%s]\n", temp);
+      //printf("[%s]\n", temp);
       temp = strtok(NULL, " ");
-      printf("[%s]\n", temp);
+      //printf("[%s]\n", temp);
       msg->filepaths[i] = malloc(sizeof(char)*(strlen(temp)+1));
       memset(msg->filepaths[i], '\0', strlen(temp)+1);
       strcpy(msg->filepaths[i], temp);
       i++;
       //maybe free stuff?
     }
-    printf("start freeing\n");
+    //printf("start freeing\n");
     prev = ptr; ptr = ptr->next;
     if(temp==NULL)
       //free(prev->str);
     //free(prev);
     prev = ptr; ptr = ptr->next; //free(prev->str); free(prev);
-    printf("end freeing\n");
+    //printf("end freeing\n");
   }
   sendMessage(serverfd, msg);
   memset(check,'\0',2);
   read(serverfd,check,1);
   if(atoi(check)==0)
-    printf("Error:Push was not completed. Client's .Commit wil now be removed\n");
+    printf("[client] Error:Push was not completed. Client's .Commit wil now be removed\n");
   else
-    printf("Push completed.\n");
+    printf("[client] Push completed.\n");
   free(msg->dirs);
   for(i = 0; i<Files; i++)
     free(msg->filepaths[i]);
@@ -197,7 +196,7 @@ int push(char* project){
   memset(check,'\0',2);
   read(serverfd,check,1);
   if(atoi(check)==0)
-    printf("Server manifest not obtained, please update after push\n");
+    printf("[client] Error: Server manifest not obtained, please update after push\n");
   int byte=readBytesNum(serverfd);
   char* buf=malloc(sizeof(char)*(byte+1));
   memset(buf,'\0',byte+1);
@@ -625,7 +624,7 @@ int history(char* project){
   char*temp=malloc(sizeof(char)*(len+1));
   memset(temp,'\0',len+1);
   read(serverfd,temp,len);
-  printf("%s\n",temp);
+  //printf("%s\n",temp);
   close(serverfd);
   free(temp);
   return 1;

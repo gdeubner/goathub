@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include "gStructs.h"
 #include <errno.h>
 
@@ -77,9 +78,19 @@ tnode* insertBST(char* str, tnode *root){
   return root;
 }
 
-wnode *insertLL(wnode *head, char *str){
+wnode *searchLL(wnode *head, char* target){
+  while(head!=NULL){
+    if(strcmp(head->str, target)==0)
+      return head;
+    head = head->next;
+  }
+  return NULL;
+}
+
+wnode *insertLL(wnode *head, char *str, int num){
   wnode *node = malloc(sizeof(wnode));
   node->str = str;
+  node->num = num;
   node->next = head;
   head = node;
   return head;
@@ -308,7 +319,7 @@ wnode* scanFile(int fd, wnode* head, char *delims){
 	token = malloc(sizeof(char)*(ptr-prev));
 	memcpy(token, buffer+prev, ptr-prev-1);
 	token[ptr-prev] = '\0';
-	head = insertLL(head, token);
+	head = insertLL(head, token, 0);
       }
     }else{ //not at end of file and...
       memcpy(buffer, buffer+prev, ptr-prev);
@@ -369,4 +380,29 @@ wnode *removeFirstNodeLL(wnode *ptr){
   free(temp->byte);
   free(temp);
   return ptr;
+}
+
+int lockFile(wnode *head, char *target){
+  wnode *ptr = NULL;
+  ptr = searchLL(head, target);
+  if(ptr==NULL){
+    //printf("[server] Error: [checkPendingCommits] project not found on server list\n");
+    return 0;
+  }
+  if(head->num==0){
+    head->num = 1; // available, now locked
+    return 0;
+  }
+  if(head->num==1)
+    return 1; // locked, not available
+  
+  return -1;
+}
+
+int unlockFile(wnode *head, char *target){
+  wnode *ptr = NULL;
+  ptr = searchLL(head, target);
+  if(ptr!=NULL)
+    ptr->num == 0;
+  return 0;
 }

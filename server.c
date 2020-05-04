@@ -519,7 +519,10 @@ int push(int client,message* msg){
   copyFile(log,newtempfd);
   write(log,"\n",1);
   close(log);
-  remove(temp1);//Removes server's copy of .Commit
+  memset(temp1,'\0',2000);
+  strcat(temp1,"rm -r ");//get rid of all pending commits
+  strcat(temp1,project);
+  strcat(temp1,Commit);
   close(newtempfd);
   free(newVer);
   free(temp1);

@@ -229,10 +229,10 @@ int upgrade(char *projectName){
   strcat(conflictPath, projectName);
   strcat(conflictPath, "/.Conflict");
   int confd = open(conflictPath, O_RDONLY);
+  free(conflictPath);
   if(confd>=0){
     printf("[client] Warning: Conflicts exist between remote and local. Resolve conflicts and then update\n");
     close(confd);
-    free(conflictPath);
     return 0;
   }
   char *updatePath = malloc(sizeof(char)*(strlen(projectName)+13));
@@ -263,16 +263,27 @@ int upgrade(char *projectName){
     free(updatePath);
     return -1;
   }
+  char *version = malloc(sizeof(char)*1000);
+  memset(version, '\0', 1000);
+  strcat(version, "./");
+  strcat(version, projectName);
+  strcat(version, "/.serverVersion");
+  int vers = open(version, O_RDWR);
+  char *buff = malloc(sizeof(char)*10);
+  memset(buff, '\0', 10);
+  read(vers, buff, 4);
   message *msg = malloc(sizeof(message));
   msg->cmd = "upgrade";
-  msg->numargs = 1;
-  msg->args = malloc(sizeof(char*));
+  msg->numargs = 2;
+  msg->args = malloc(sizeof(char*)*2);
   msg->args[0] = projectName;
+  msg->args[1] = buff;
   msg->numfiles = 1;
   msg->dirs = "0";
   msg->filepaths = malloc(sizeof(char*));
   msg->filepaths[0] = updatePath;
   sendMessage(serverfd, msg);
+  free(buff);
   free(msg->args);
   free(msg->filepaths[0]);
   free(msg->filepaths);
@@ -281,10 +292,13 @@ int upgrade(char *projectName){
   if(strcmp(msg->cmd, "error")==0){
     printf(msg->args[0]);
     freeMSG(msg);
+    free(version);
     close(serverfd);
     close(upfd);
     return -1;
   }
+  remove(version);
+  free(version);
   wnode *ptr = NULL;
   ptr = scanFile(upfd, ptr, "\n");
   //printLL(ptr);
@@ -693,16 +707,30 @@ int update(char* projectName){
   clihead = scanFile(manfd, clihead, " \n");
   if(servhead->str[0]==clihead->str[0]){
     printf("[client] Up To Date\n", projectName);
-    remove(conflictPath);//
+    remove(conflictPath);
     cleanLL(servhead);
     cleanLL(clihead);
     close(serverfd);
     close(manfd);
-    free(manPath);
     close(tempfd);
+    free(updatePath);
+    free(conflictPath);
+    free(manPath);
     remove("tempToaster.txt");
     return 0;
   }
+  char *version = malloc(sizeof(char)*1000);
+  memset(version, '\0', 1000);
+  strcat(version, "./");
+  strcat(version, projectName);
+  strcat(version, "/.serverVersion");
+  remove(version);
+  int vers = open(version, O_CREAT|O_RDWR, 00600);
+  if(vers<0)
+    printf("Failed to create .serverVersion\n");
+  write(vers, servhead->str, strlen(servhead->str));
+  close(vers);
+  free(version);
   servhead = condenseLL(servhead);
   clihead = condenseLL(clihead);
   wnode *sptr = servhead;
@@ -797,6 +825,7 @@ int update(char* projectName){
   close(serverfd);
   free(updatePath);
   free(conflictPath);
+  free(manPath);
   freeMSG(msg);
   return 0;
 }
@@ -1129,7 +1158,8 @@ int createC(char *projectName){
   }
   if(mkdir(projectName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)<0){
     printf("[client] Error: Unable to create directory %s locally because it already exists.\n", projectName);
-    free(msg);
+    freeMSG(msg);
+    close(serverfd);
     return -1;
   }
   
@@ -1138,6 +1168,8 @@ int createC(char *projectName){
   if(fd<0){
     printf("Error: Unable to create a .Manifest file for the project.\n");
     freeMSG(msg);
+    close(serverfd);
+    free(manfile);
     return -1;
   }
   copyNFile(fd, serverfd, msg->filelens[0]);
@@ -1164,6 +1196,7 @@ int configure(char* IP,char* port){
   write(fd, buffer, strlen(buffer));
   printf("[client] Configuration set\n");
   close(fd);
+  free(buffer);
   return 1;
 }
 

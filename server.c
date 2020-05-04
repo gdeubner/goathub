@@ -300,7 +300,7 @@ int push(int client,message* msg){
   //printf("%s version's before push is %d\n",project,version);
   wnode *ptr = NULL;
   ptr = scanFile(tempfd, ptr, "\n");
-  printLL(ptr);
+  //printLL(ptr);
   wnode *prev = NULL;
   char *temp = NULL;
   int i = 0;
@@ -1053,118 +1053,144 @@ void *interactWithClient(void *fd){
   printf("[server] message recieved on server\n");
   if(strcmp(msg->cmd, "checkout")==0){
     pthread_mutex_lock(&lock);
-    int num = lockFile(fileList, msg->args[0]);
+    wnode *ptr = findLL(fileList, msg->args[0]);
+    int num = ptr->num;
+    ptr->num = 1; //locks file
     pthread_mutex_unlock(&lock);
     if(num==0){
       checkout(mfd, msg);
-      unlockFile(fileList, msg->args[0]);  
+      ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
-      write(mfd, "1", 1);
+      write(mfd, "5", 1);
       return 0;
     }
   }else if(strcmp(msg->cmd, "update")==0){
     pthread_mutex_lock(&lock);
-    int num = lockFile(fileList, msg->args[0]);
+    wnode *ptr = findLL(fileList, msg->args[0]);
+    int num = ptr->num;
+    ptr->num = 1; //locks file
     pthread_mutex_unlock(&lock);
     if(num==0){
       updateS(mfd, msg);
-      unlockFile(fileList, msg->args[0]);  
+      ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
-      msg->cmd = "blocked";
-      msg->numargs = 0;
+      msg->cmd = "error";
+      msg->numargs = 1;
+      msg->args = malloc(sizeof(char*));
+      msg->args[0] = "[client] Error: File was being accessed by another user. Please try again.\n";
       msg->numfiles = 0;
       sendMessage(mfd, msg);
+      free(msg->args);
+      free(msg);
       return 0;
     }
   }else if(strcmp(msg->cmd, "upgrade")==0){
     pthread_mutex_lock(&lock);
-    int num = lockFile(fileList, msg->args[0]);
+    wnode *ptr = findLL(fileList, msg->args[0]);
+    int num = ptr->num;
+    ptr->num = 1; //locks file
     pthread_mutex_unlock(&lock);
     if(num==0){
       upgradeS(mfd, msg);
-      unlockFile(fileList, msg->args[0]);  
+      ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
-      msg->cmd = "blocked";
-      msg->numargs = 0;
+      msg->cmd = "error";
+      msg->numargs = 1;
+      msg->args = malloc(sizeof(char*));
+      msg->args[0] = "[client] Error: File was being accessed by another user. Please try again.\n";
       msg->numfiles = 0;
       sendMessage(mfd, msg);
+      free(msg->args);
+      free(msg);
       return 0;
     }
   }else if(strcmp(msg->cmd, "commit")==0){
     pthread_mutex_lock(&lock);
-    int num = lockFile(fileList, msg->args[0]);
+    wnode *ptr = findLL(fileList, msg->args[0]);
+    int num = ptr->num;
+    ptr->num = 1; //locks file
     pthread_mutex_unlock(&lock);
     if(num==0){
       commit(mfd, msg);
-      unlockFile(fileList, msg->args[0]);  
+      ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
-      write(mfd, "1", 1);
+      write(mfd, "5", 1);
       return 0;
     }
   }else if(strcmp(msg->cmd, "push")==0){
     pthread_mutex_lock(&lock);
-    int num = lockFile(fileList, msg->args[0]);
+    wnode *ptr = findLL(fileList, msg->args[0]);
+    int num = ptr->num;
+    ptr->num = 1; //locks file
     pthread_mutex_unlock(&lock);
     if(num==0){
       push(mfd, msg);
-      unlockFile(fileList, msg->args[0]);  
+      ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
-      write(mfd, "1", 1);
+      write(mfd, "5", 1);
       return 0;
     }
   }else if(strcmp(msg->cmd, "create")==0){
     createS(mfd, msg);
   }else if(strcmp(msg->cmd, "destroy")==0){
     pthread_mutex_lock(&lock);
-    int num = lockFile(fileList, msg->args[0]);
+    wnode *ptr = findLL(fileList, msg->args[0]);
+    int num = ptr->num;
+    ptr->num = 1; //locks file
     pthread_mutex_unlock(&lock);
     if(num==0){
       destroy(mfd, msg);
-      unlockFile(fileList, msg->args[0]);  
+      ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
-      write(mfd, "1", 1);
+      write(mfd, "5", 1);
       return 0;
     }
   }else if(strcmp(msg->cmd, "currentversion")==0){
     pthread_mutex_lock(&lock);
-    int num = lockFile(fileList, msg->args[0]);
+    wnode *ptr = findLL(fileList, msg->args[0]);
+    int num = ptr->num;
+    ptr->num = 1; //locks file
     pthread_mutex_unlock(&lock);
     if(num==0){
       currentVersion(mfd, msg);
-      unlockFile(fileList, msg->args[0]);  
+      ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
-      write(mfd, "1", 1);
+      write(mfd, "5", 1);
       return 0;
     }
   }else if(strcmp(msg->cmd, "history")==0){
     pthread_mutex_lock(&lock);
-    int num = lockFile(fileList, msg->args[0]);
+    wnode *ptr = findLL(fileList, msg->args[0]);
+    int num = ptr->num;
+    ptr->num = 1; //locks file
     pthread_mutex_unlock(&lock);
     if(num==0){
       history(mfd, msg);
-      unlockFile(fileList, msg->args[0]);  
+      ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
-      write(mfd, "1", 1);
+      write(mfd, "5", 1);
       return 0;
     }
   }else if(strcmp(msg->cmd, "rollback")==0){
     pthread_mutex_lock(&lock);
-    int num = lockFile(fileList, msg->args[0]);
+    wnode *ptr = findLL(fileList, msg->args[0]);
+    int num = ptr->num;
+    ptr->num = 1; //locks file
     pthread_mutex_unlock(&lock);
     if(num==0){
       rollback(mfd, msg);
-      unlockFile(fileList, msg->args[0]);  
+      ptr->num = 0; //unlocks file
     }else{
       freeMSG(msg);
-      write(mfd, "1", 1);
+      write(mfd, "5", 1);
       return 0;
     }
   }else if(strcmp(msg->cmd, "killserver")==0){
@@ -1198,7 +1224,7 @@ int main(int argc, char** argv){
   if((bind(sockfd,(SA*)&serverAddress,sizeof(serverAddress)))!=0){
     printf("[server] Bind failed \n");
     close(sockfd);
-    exit(0);
+    return 0;
   }else{
     printf("[server] Socket binded\n");
   }
@@ -1221,7 +1247,7 @@ int main(int argc, char** argv){
       printf("[server] Server accept failed\n");
       close(clientfd);
       close(sockfd);
-      exit(0);
+      return 0;
     }else{
       printf("[server] Server accepted the client\n");
       pthread_t thread_id;

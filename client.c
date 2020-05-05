@@ -761,8 +761,10 @@ int update(char* projectName){
 	  //writes modify code to .Update
 	  if(strcmp(livehash, cptr->byte)==0){
 	    // make sure it makes sense to write the server's hash here, might be a mistake in the description
-	    if(conflict==0)
+	    if(conflict==0){
+	      //printf("[client] ");
 	      writeCode(upfd, 'M', clihead->str, servhead->byte);
+	    }
 	    if(cprev==NULL){ //first entry
 	      cptr = removeFirstNodeLL(cptr);
 	      clihead = cptr;
@@ -776,6 +778,7 @@ int update(char* projectName){
 	      remove(updatePath);
 	    }
 	    conflict = 1;
+	    //printf("[client] ");
 	    writeCode(confd, 'C', clihead->str, livehash);
 	    if(cprev==NULL){ //first entry
 	      cptr = removeFirstNodeLL(cptr);
@@ -807,14 +810,18 @@ int update(char* projectName){
   }/////end server while loop
   //writes add code to .Update
   while(servhead!=NULL){
-    if(conflict==0)
+    if(conflict==0){
+      //printf("[client] ");
       writeCode(upfd, 'A', servhead->str, servhead->byte);
+    }    
     servhead = removeFirstNodeLL(servhead);
   }
   //writes delete code to .Update
   while(clihead!=NULL){
-    if(conflict==0)
+    if(conflict==0){
+      //printf("[client] ");
       writeCode(upfd, 'D', clihead->str, clihead->byte);
+    }
     clihead = removeFirstNodeLL(clihead);
   }
   close(tempfd);

@@ -519,15 +519,18 @@ int compressProject(char* project){
   int ptr=-1;
   int fd=open(temp,O_RDONLY);
   if(fd<0){
+    close(fd);
     return 0;//Manifest not found
   }
   do{
     ptr++;
     int check=read(fd,buffer+ptr,1);
     if(check==0){
+      close(fd);
       return 0;//Shouldn't ever happen
     }
   }while(buffer[ptr]!='\n');
+  close(fd);
   buffer[ptr]='\0';//holds project version number
   int folderCheck=atoi(buffer);
   if(folderCheck==1){

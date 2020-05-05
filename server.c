@@ -840,6 +840,7 @@ int rollback(int client,message* msg){
     free(vcheck);
     write(client,"0",1);
     close(client);
+    close(fd);
     return 0;
   }
   memset(vcheck,'\0',2000);
@@ -851,6 +852,7 @@ int rollback(int client,message* msg){
   }while((vcheck[ptr]!='\n')&&(c!=0));
   vcheck[ptr]='\0';
   if(atoi(vcheck)<=v||v==0){
+    close(fd);
     free(msg->cmd);
     free(msg->args[0]);
     free(msg->args);
@@ -861,6 +863,7 @@ int rollback(int client,message* msg){
     close(client);
     return 2;
   }
+  close(fd);
   char* temp=malloc(sizeof(char)*2000);
   do{
     v++;
@@ -883,7 +886,6 @@ int rollback(int client,message* msg){
   memset(temp,'\0',2000);
   strcat(temp,project);
   strcat(temp,"log");
-  close(fd);
   fd=open(temp,O_RDWR);//Assumes there is a log file
   lseek(fd,0,SEEK_END);
   write(fd,"Rollback to version ",20);

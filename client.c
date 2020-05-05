@@ -902,7 +902,7 @@ void printManifest(char* str){
     }
     //int fileVer=atoi(temp);
     ptr++;
-    printf("File is, %s and its version is: %d\n",temp,fileVer);
+    printf("[client] File is, %s and its version is: %d\n",temp,fileVer);
     ptr+=41;//40 bytes file hash and new line char
   }
   free(temp);

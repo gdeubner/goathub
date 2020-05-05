@@ -28,8 +28,7 @@ int killserverS(){
     fileList = fileList->next;
     free(prev->str);
     free(prev);
-  }
-  
+  }  
   exit(0);
 }
 
@@ -49,7 +48,7 @@ void sigintHandler(int num){
 int removeF(const char *project, char *file){
   DIR *dirp = opendir(project);
   if(dirp==NULL){
-    printf("Fatal Error: Project directory %s cannot be opened\n", project);
+    printf("[server] Fatal Error: Project directory %s cannot be opened\n", project);
     return -1;
   }
   closedir(dirp);
@@ -68,7 +67,7 @@ int removeF(const char *project, char *file){
   
   int man = open(manPath, O_RDWR);
   if(man<0){
-    printf("Fatal Error: Unable to open the %s/.Manifest file.\n", project);
+    printf("[server] Fatal Error: Unable to open the %s/.Manifest file.\n", project);
     return -1;
   }
   struct stat st;  //might need to free???
@@ -92,7 +91,7 @@ int removeF(const char *project, char *file){
     }
   }
   if(ptr==NULL){
-    printf("Warning: File %s was not found in .Manifest. Could not remove.\n",filePath);
+    printf("[server] Warning: File %s was not found in .Manifest. Could not remove.\n",filePath);
     free(buffer);
     return -1;
   }
@@ -109,7 +108,7 @@ int removeF(const char *project, char *file){
   strcat(temp, ".hcz");
   close(man);
   if(rename(manPath, temp)==-1){
-    printf("Fatal error: Unable to remove file from .Manifest.\n");
+    printf("[server] Fatal error: Unable to remove file from .Manifest.\n");
     free(temp); free(buffer); free(manPath);
     return -1;
   }
@@ -367,7 +366,7 @@ int push(int client,message* msg){
 	return 0;
       }
       i++;
-      printf("[server] Deleted file: %s\n", temp);
+      //printf("[server] Deleted file: %s\n", temp);
     }else if(strcmp(temp, "A")==0){ //add new file (with new folders)
       //create new folderzzz
       temp = strtok(NULL, " ");
@@ -487,7 +486,7 @@ int push(int client,message* msg){
 	cleanLL(ptr);
 	close(tempfd);
 	return 0;
-      };
+      };/////
       printf("[server] Edited file: %s\n", temp);
     }
     prev = ptr;

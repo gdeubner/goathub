@@ -86,7 +86,7 @@ int main(int argc, char **argv){
   sleep(1);
   printf("Printing history\n");
   system("./WTF history testproject");
-  sleep(10);
+  sleep(2);
   printf("Destroying project\n");
   system("./WTF destroy testproject");
   sleep(2);

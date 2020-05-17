@@ -34,7 +34,6 @@ int main(int argc, char **argv){
   sleep(1);
   printf("Creating new project\n");
   system("./goat create testproject");
- 
   printf("Getting history of project,should only be:\nPush 1\nCreation\n\n");
   system("./goat history testproject");
   printf("Creating test1.txt\n");
@@ -90,7 +89,6 @@ int main(int argc, char **argv){
   printf("Destroying project\n");
   system("./goat destroy testproject");
   sleep(2);
- 
   printf("Killing Server\n");
   system("./goat killserver");
   system("rm -R server testproject");

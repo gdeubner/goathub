@@ -1,19 +1,19 @@
-all: goat goatServer
+all: WTF WTFserver
 
-test: all goatTest goatTestServer
+test: all WTFtest WTFtestserver
 
-goat: client.c gStructs.o fileManip.o network.o 
-	gcc -g client.c gStructs.o fileManip.o network.o -o goat -lssl -lcrypto
+WTF: client.c gStructs.o fileManip.o network.o 
+	gcc -g client.c gStructs.o fileManip.o network.o -o WTF -lssl -lcrypto
 
-goatServer: server.c gStructs.o fileManip.o network.o
-	gcc -g server.c gStructs.o fileManip.o network.o -o goatServer -lssl -lcrypto -lpthread
+WTFserver: server.c gStructs.o fileManip.o network.o
+	gcc -g server.c gStructs.o fileManip.o network.o -o WTFserver -lssl -lcrypto -lpthread
 
-goatTest: test.c
-	gcc test.c -o goatTest
+WTFtest: test.c
+	gcc test.c -o WTFtest
 
-goatTestServer: testserver.c
+WTFtestserver: testserver.c
 	mkdir server;
-	gcc testserver.c -o ./server/goatTestServer;
+	gcc testserver.c -o ./server/WTFtestserver;
 
 gStructs.o:
 	gcc -c -g gStructs.c
@@ -25,5 +25,5 @@ fileManip.o:
 	gcc -c -g fileManip.c
 
 clean:
-	rm -R goat goatServer gStructs.o network.o fileManip.o goatTest server testproject;
+	rm -R WTF WTFserver gStructs.o network.o fileManip.o WTFtest server testproject;
 

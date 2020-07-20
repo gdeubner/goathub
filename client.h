@@ -1,5 +1,5 @@
 #ifndef CLIENT_H
-#define ELIENT_H
+#define CLIENT_H
 
 int killserver();
 int push(char*);

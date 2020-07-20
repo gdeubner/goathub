@@ -1287,7 +1287,7 @@ int main(int argc, char** argv){
   fileList = NULL;
   signal(SIGINT, sigintHandler);
   if(argc!= 2){
-    printf("[server] Error: Gave %s argument(s). Must only enter port number.\n", argc);
+    printf("[server] Error: Gave %d argument(s). Must only enter port number.\n", argc);
     return 0;
   }
   int sockfd=socket(AF_INET,SOCK_STREAM,0);
